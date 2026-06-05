@@ -1,0 +1,17 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.env
+.venv/
+venv/
+dist/
+build/
+*.tiff
+*.tif
+/tmp/
+.DS_Store
+# Byte-compiled / optimized / DLL support files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd

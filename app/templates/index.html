@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Lenticular Microtube Creator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
+<style>
+  /* ── RESET & TOKENS ─────────────────────────────────────────── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:         #060810;
+    --surface:    #0d1120;
+    --border:     rgba(100,180,255,.12);
+    --border-hi:  rgba(100,180,255,.35);
+    --text:       #c8d8f0;
+    --muted:      #566070;
+    --accent:     #4af0c8;
+    --accent2:    #7b5cfa;
+    --error:      #ff5c7a;
+    --radius:     10px;
+    --mono:       'Space Mono', monospace;
+    --sans:       'DM Sans', sans-serif;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 15px;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  /* ── NOISE OVERLAY ─────────────────────────────────────────── */
+  body::before {
+    content: '';
+    position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    background-size: 180px;
+    opacity: .55;
+  }
+
+  /* ── HEADER ─────────────────────────────────────────────────── */
+  header {
+    position: relative; z-index: 1;
+    width: 100%; max-width: 760px;
+    padding: 52px 24px 0;
+    text-align: center;
+  }
+
+  .logo-line {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: .25em;
+    color: var(--accent);
+    text-transform: uppercase;
+    margin-bottom: 12px;
+    opacity: .8;
+  }
+
+  h1 {
+    font-family: var(--mono);
+    font-size: clamp(22px, 5vw, 34px);
+    font-weight: 700;
+    line-height: 1.15;
+    letter-spacing: -.02em;
+    color: #e8f4ff;
+    margin-bottom: 14px;
+  }
+
+  h1 span { color: var(--accent); }
+
+  .subtitle {
+    color: var(--muted);
+    font-size: 13.5px;
+    font-weight: 300;
+    max-width: 480px;
+    margin: 0 auto 48px;
+    line-height: 1.7;
+  }
+
+  /* ── PIPELINE STEPS ─────────────────────────────────────────── */
+  .pipeline {
+    position: relative; z-index: 1;
+    width: 100%; max-width: 760px;
+    padding: 0 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .step {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 28px 32px;
+    transition: border-color .2s;
+  }
+  .step.active  { border-color: var(--border-hi); }
+  .step.done    { border-color: rgba(74,240,200,.25); }
+  .step.error   { border-color: rgba(255,92,122,.3); }
+
+  .step-head {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 20px;
+  }
+
+  .step-num {
+    width: 30px; height: 30px;
+    border-radius: 50%;
+    border: 1.5px solid var(--border-hi);
+    display: grid; place-items: center;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--accent);
+    flex-shrink: 0;
+    transition: background .3s, border-color .3s;
+  }
+  .step.done .step-num { background: var(--accent); border-color: var(--accent); color: #060810; }
+  .step.done .step-num::after { content: '✓'; font-size: 13px; font-weight: 700; }
+
+  .step-title {
+    font-family: var(--mono);
+    font-size: 13px;
+    letter-spacing: .08em;
+    color: #e0eeff;
+    text-transform: uppercase;
+  }
+
+  /* ── DROP ZONE ───────────────────────────────────────────────── */
+  .dropzone {
+    border: 1.5px dashed var(--border-hi);
+    border-radius: 8px;
+    padding: 36px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: background .2s, border-color .2s;
+    background: rgba(100,180,255,.02);
+  }
+  .dropzone:hover, .dropzone.drag-over {
+    background: rgba(100,180,255,.06);
+    border-color: var(--accent);
+  }
+
+  .dropzone input { display: none; }
+
+  .drop-icon { font-size: 30px; margin-bottom: 10px; }
+  .drop-label { font-size: 13px; color: var(--muted); line-height: 1.6; }
+  .drop-label strong { color: var(--accent); font-weight: 500; }
+
+  /* ── THUMBNAILS ──────────────────────────────────────────────── */
+  .thumbs {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-top: 16px;
+  }
+
+  .thumb {
+    position: relative;
+    width: 80px; height: 80px;
+    border-radius: 6px;
+    overflow: hidden;
+    border: 1px solid var(--border-hi);
+  }
+  .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .thumb-label {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    font-family: var(--mono); font-size: 9px;
+    background: rgba(6,8,16,.75);
+    color: var(--accent); text-align: center;
+    padding: 2px 0;
+  }
+  .thumb-remove {
+    position: absolute; top: 3px; right: 3px;
+    background: rgba(255,92,122,.85);
+    border: none; color: white;
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    font-size: 9px; cursor: pointer;
+    display: grid; place-items: center;
+    line-height: 1;
+  }
+
+  /* ── PARAMS ──────────────────────────────────────────────────── */
+  .params-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 16px;
+  }
+
+  .param-field label {
+    display: block;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: .12em;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+
+  .param-field input {
+    width: 100%;
+    background: rgba(100,180,255,.04);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 9px 12px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 14px;
+    outline: none;
+    transition: border-color .2s;
+  }
+  .param-field input:focus { border-color: var(--accent); }
+
+  .param-hint {
+    font-size: 11px; color: var(--muted);
+    margin-top: 5px; line-height: 1.5;
+  }
+
+  /* ── MATH PREVIEW ────────────────────────────────────────────── */
+  .math-box {
+    background: rgba(74,240,200,.04);
+    border: 1px solid rgba(74,240,200,.15);
+    border-radius: 8px;
+    padding: 16px 20px;
+    font-family: var(--mono);
+    font-size: 12px;
+    line-height: 2;
+    color: var(--muted);
+    margin-top: 16px;
+  }
+  .math-box span { color: var(--accent); font-weight: 700; }
+
+  /* ── BUTTON ──────────────────────────────────────────────────── */
+  .btn-process {
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    width: 100%; margin-top: 12px;
+    padding: 15px;
+    background: linear-gradient(135deg, var(--accent2), var(--accent));
+    border: none; border-radius: 8px;
+    color: #060810;
+    font-family: var(--mono); font-size: 13px; font-weight: 700;
+    letter-spacing: .1em; text-transform: uppercase;
+    cursor: pointer;
+    transition: opacity .2s, transform .1s;
+  }
+  .btn-process:disabled { opacity: .4; cursor: not-allowed; }
+  .btn-process:not(:disabled):hover { opacity: .88; }
+  .btn-process:not(:disabled):active { transform: scale(.98); }
+
+  /* ── PROGRESS ────────────────────────────────────────────────── */
+  .progress-track {
+    height: 3px;
+    background: var(--border);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-top: 16px;
+    display: none;
+  }
+  .progress-track.visible { display: block; }
+
+  .progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent2), var(--accent));
+    border-radius: 3px;
+    width: 0%;
+    transition: width .4s ease;
+    animation: pulse-bar 1.5s ease-in-out infinite;
+  }
+  @keyframes pulse-bar {
+    0%, 100% { opacity: 1; } 50% { opacity: .6; }
+  }
+
+  .status-msg {
+    font-family: var(--mono); font-size: 12px;
+    color: var(--muted); margin-top: 10px;
+    min-height: 18px;
+  }
+  .status-msg.ok    { color: var(--accent); }
+  .status-msg.err   { color: var(--error); }
+
+  /* ── RESULT PANEL ────────────────────────────────────────────── */
+  .result-panel {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+  }
+  .result-panel.visible { display: flex; }
+
+  .preview-wrap {
+    position: relative;
+    width: 220px; height: 220px;
+    border-radius: 50%;
+    overflow: hidden;
+    border: 2px solid var(--border-hi);
+    box-shadow: 0 0 40px rgba(74,240,200,.15);
+  }
+  .preview-wrap img { width: 100%; height: 100%; object-fit: cover; }
+
+  .preview-label {
+    font-family: var(--mono); font-size: 11px;
+    color: var(--muted); text-align: center; letter-spacing: .1em;
+  }
+
+  .btn-download {
+    display: flex; align-items: center; gap: 8px;
+    padding: 12px 28px;
+    background: transparent;
+    border: 1.5px solid var(--accent);
+    border-radius: 8px;
+    color: var(--accent);
+    font-family: var(--mono); font-size: 12px; font-weight: 700;
+    letter-spacing: .1em; text-transform: uppercase;
+    cursor: pointer;
+    transition: background .2s, color .2s;
+    text-decoration: none;
+  }
+  .btn-download:hover { background: var(--accent); color: #060810; }
+
+  .print-tip {
+    background: rgba(123,92,250,.08);
+    border: 1px solid rgba(123,92,250,.2);
+    border-radius: 8px;
+    padding: 14px 18px;
+    font-size: 12.5px;
+    line-height: 1.7;
+    color: var(--muted);
+    max-width: 440px;
+    text-align: center;
+  }
+  .print-tip strong { color: #e0eeff; }
+
+  /* ── FOOTER ─────────────────────────────────────────────────── */
+  footer {
+    position: relative; z-index: 1;
+    margin-top: 60px; padding: 24px;
+    font-family: var(--mono); font-size: 11px;
+    color: var(--muted); letter-spacing: .08em;
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <p class="logo-line">⬡ lenticular microtube creator v1.0</p>
+  <h1>Microtube <span>Lenticular</span><br/>Entrelaçador</h1>
+  <p class="subtitle">
+    Gere imagens entrelaçadas para microtubo 5 × 5 cm.<br/>
+    100 LPI · 300 DPI · saída TIFF pronta para impressão.
+  </p>
+</header>
+
+<main class="pipeline">
+
+  <!-- STEP 1: Upload -->
+  <section class="step active" id="step-upload">
+    <div class="step-head">
+      <div class="step-num" id="num-1">1</div>
+      <span class="step-title">Upload dos Frames</span>
+    </div>
+
+    <div class="dropzone" id="dropzone">
+      <input type="file" id="file-input" accept="image/*" multiple />
+      <div class="drop-icon">🖼</div>
+      <p class="drop-label">
+        <strong>Clique ou arraste</strong> 2 a 4 frames aqui.<br/>
+        Recomendado: 1500 × 1500 px, JPEG ou PNG.
+      </p>
+    </div>
+
+    <div class="thumbs" id="thumbs"></div>
+  </section>
+
+  <!-- STEP 2: Params -->
+  <section class="step" id="step-params">
+    <div class="step-head">
+      <div class="step-num" id="num-2">2</div>
+      <span class="step-title">Parâmetros de Impressão</span>
+    </div>
+
+    <div class="params-grid">
+      <div class="param-field">
+        <label>LPI (linhas/pol.)</label>
+        <input type="number" id="p-lpi" value="100" min="60" max="200" />
+        <p class="param-hint">Folha lenticular padrão = 100 LPI</p>
+      </div>
+      <div class="param-field">
+        <label>DPI (impressora)</label>
+        <input type="number" id="p-dpi" value="300" min="150" max="600" />
+        <p class="param-hint">Foto lab = 300 DPI mínimo</p>
+      </div>
+      <div class="param-field">
+        <label>Tamanho (cm)</label>
+        <input type="number" id="p-size" value="5.0" min="2" max="20" step="0.5" />
+        <p class="param-hint">Microtube padrão = 5 × 5 cm</p>
+      </div>
+    </div>
+
+    <div class="math-box" id="math-box">
+      <!-- preenchido via JS -->
+    </div>
+  </section>
+
+  <!-- STEP 3: Process -->
+  <section class="step" id="step-process">
+    <div class="step-head">
+      <div class="step-num" id="num-3">3</div>
+      <span class="step-title">Processar Entrelaçamento</span>
+    </div>
+
+    <button class="btn-process" id="btn-run" disabled>
+      ▶ &nbsp;Gerar Imagem Entrelaçada
+    </button>
+
+    <div class="progress-track" id="progress-track">
+      <div class="progress-bar" id="progress-bar" style="width:15%"></div>
+    </div>
+    <p class="status-msg" id="status-msg"></p>
+  </section>
+
+  <!-- STEP 4: Result -->
+  <section class="step" id="step-result">
+    <div class="step-head">
+      <div class="step-num" id="num-4">4</div>
+      <span class="step-title">Download & Impressão</span>
+    </div>
+
+    <div class="result-panel" id="result-panel">
+      <div class="preview-wrap">
+        <img id="preview-img" src="" alt="Preview entrelaçado" />
+      </div>
+      <p class="preview-label">↑ simulação de como ficará no microtube</p>
+
+      <a class="btn-download" id="btn-download" href="#" download>
+        ↓ &nbsp;Baixar TIFF (impressão 1:1)
+      </a>
+
+      <div class="print-tip">
+        <strong>Como imprimir:</strong><br/>
+        Envie o TIFF para uma gráfica ou impressora fotográfica.<br/>
+        Defina tamanho <strong>5 × 5 cm</strong> sem escalonamento automático.<br/>
+        Papel fotográfico brilhante 300g+ recomendado.
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer>made with ♥ para o dia dos namorados · lenticular microtube creator</footer>
+
+<script>
+  // ── STATE ──────────────────────────────────────────────────────────────
+  let selectedFiles = [];
+  let currentJobId  = null;
+  let pollTimer     = null;
+
+  // ── DOM refs ───────────────────────────────────────────────────────────
+  const dropzone     = document.getElementById('dropzone');
+  const fileInput    = document.getElementById('file-input');
+  const thumbsEl     = document.getElementById('thumbs');
+  const btnRun       = document.getElementById('btn-run');
+  const statusMsg    = document.getElementById('status-msg');
+  const progressTrack= document.getElementById('progress-track');
+  const progressBar  = document.getElementById('progress-bar');
+  const resultPanel  = document.getElementById('result-panel');
+  const previewImg   = document.getElementById('preview-img');
+  const btnDownload  = document.getElementById('btn-download');
+  const mathBox      = document.getElementById('math-box');
+
+  // param inputs
+  const pLpi  = document.getElementById('p-lpi');
+  const pDpi  = document.getElementById('p-dpi');
+  const pSize = document.getElementById('p-size');
+
+  // ── DROP ZONE ──────────────────────────────────────────────────────────
+  dropzone.addEventListener('click', () => fileInput.click());
+  dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('drag-over'); });
+  dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag-over'));
+  dropzone.addEventListener('drop', e => {
+    e.preventDefault(); dropzone.classList.remove('drag-over');
+    addFiles([...e.dataTransfer.files]);
+  });
+  fileInput.addEventListener('change', () => addFiles([...fileInput.files]));
+
+  function addFiles(newFiles) {
+    newFiles.forEach(f => {
+      if (selectedFiles.length >= 4) return;
+      if (!f.type.startsWith('image/')) return;
+      selectedFiles.push(f);
+    });
+    renderThumbs();
+    updateMath();
+    syncButton();
+  }
+
+  function renderThumbs() {
+    thumbsEl.innerHTML = '';
+    selectedFiles.forEach((f, i) => {
+      const url = URL.createObjectURL(f);
+      const div = document.createElement('div');
+      div.className = 'thumb';
+      div.innerHTML = `
+        <img src="${url}" />
+        <span class="thumb-label">F${i+1}</span>
+        <button class="thumb-remove" data-i="${i}">×</button>`;
+      thumbsEl.appendChild(div);
+    });
+    thumbsEl.querySelectorAll('.thumb-remove').forEach(btn => {
+      btn.addEventListener('click', e => {
+        e.stopPropagation();
+        selectedFiles.splice(+btn.dataset.i, 1);
+        renderThumbs(); updateMath(); syncButton();
+      });
+    });
+  }
+
+  // ── MATH PREVIEW ──────────────────────────────────────────────────────
+  function updateMath() {
+    const lpi    = +pLpi.value  || 100;
+    const dpi    = +pDpi.value  || 300;
+    const size   = +pSize.value || 5.0;
+    const n      = selectedFiles.length || 4;
+    const totalPx = Math.round(size / 2.54 * dpi);
+    const strip   = (totalPx / (lpi * n)).toFixed(4);
+    mathBox.innerHTML = `
+      total_px = round(${size} / 2.54 × ${dpi}) = <span>${totalPx} px</span><br/>
+      n_frames = <span>${n}</span><br/>
+      strip    = ${totalPx} / (${lpi} × ${n}) = <span>${strip} px</span><br/>
+      ciclo    = strip × n_frames = <span>${(strip * n).toFixed(2)} px</span>
+    `;
+  }
+
+  [pLpi, pDpi, pSize].forEach(el => el.addEventListener('input', updateMath));
+  updateMath();
+
+  function syncButton() {
+    btnRun.disabled = selectedFiles.length < 2;
+  }
+
+  // ── PROCESS ───────────────────────────────────────────────────────────
+  btnRun.addEventListener('click', async () => {
+    if (selectedFiles.length < 2) return;
+
+    btnRun.disabled = true;
+    progressTrack.classList.add('visible');
+    progressBar.style.width = '10%';
+    setStatus('Enviando frames…', '');
+
+    const form = new FormData();
+    selectedFiles.forEach(f => form.append('files', f));
+    form.append('lpi',     pLpi.value);
+    form.append('dpi',     pDpi.value);
+    form.append('size_cm', pSize.value);
+
+    try {
+      const res  = await fetch('/api/process', { method: 'POST', body: form });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || 'Erro no servidor');
+
+      currentJobId = data.job_id;
+      progressBar.style.width = '35%';
+      setStatus('Processando entrelaçamento…', '');
+      pollTimer = setInterval(pollStatus, 1200);
+    } catch (err) {
+      setStatus('Erro: ' + err.message, 'err');
+      progressTrack.classList.remove('visible');
+      btnRun.disabled = false;
+    }
+  });
+
+  async function pollStatus() {
+    try {
+      const res  = await fetch(`/api/status/${currentJobId}`);
+      const data = await res.json();
+
+      if (data.status === 'processing') {
+        progressBar.style.width = '70%';
+        setStatus(data.message, '');
+      }
+      if (data.status === 'done') {
+        clearInterval(pollTimer);
+        progressBar.style.width = '100%';
+        setStatus('✓ ' + data.message, 'ok');
+        markDone(3);
+        markDone(4);
+        showResult();
+      }
+      if (data.status === 'error') {
+        clearInterval(pollTimer);
+        setStatus(data.message, 'err');
+        btnRun.disabled = false;
+        progressTrack.classList.remove('visible');
+      }
+    } catch { /* retry */ }
+  }
+
+  function showResult() {
+    resultPanel.classList.add('visible');
+    previewImg.src = `/api/preview/${currentJobId}?t=${Date.now()}`;
+    btnDownload.href = `/api/download/${currentJobId}`;
+    document.getElementById('step-result').scrollIntoView({ behavior: 'smooth' });
+  }
+
+  // ── HELPERS ────────────────────────────────────────────────────────────
+  function setStatus(msg, cls) {
+    statusMsg.textContent = msg;
+    statusMsg.className   = 'status-msg ' + cls;
+  }
+
+  function markDone(n) {
+    const step = document.getElementById(`step-${['','upload','params','process','result'][n]}`);
+    const num  = document.getElementById(`num-${n}`);
+    if (step) { step.classList.remove('active'); step.classList.add('done'); }
+    if (num)  { num.innerHTML = ''; }
+  }
+</script>
+</body>
+</html>

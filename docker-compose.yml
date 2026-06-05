@@ -1,0 +1,14 @@
+services:
+  microtube:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./app:/app/app                         # hot-reload do frontend
+      - ./processing:/app/processing           # hot-reload do algoritmo
+      - microtube_outputs:/tmp/microtube       # persistência de jobs
+    environment:
+      - PYTHONUNBUFFERED=1
+
+volumes:
+  microtube_outputs:
