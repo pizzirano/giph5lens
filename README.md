@@ -1,19 +1,10 @@
-<p align="center">
-  <img src="https://readme-typing-svg.demolab.com?font=Space+Mono&size=24&pause=3000&color=4AF0C8&center=true&vCenter=true&width=700&lines=giph5lens+🔮;Quando+o+Código+Vira+Lembrança;Microtube+Print+Spooler" alt="typing svg" />
-  <br/><br/>
-  <img src="https://img.shields.io/badge/Python-3.12-3776AB?style=for-the-badge&logo=python&logoColor=white"/>
-  <img src="https://img.shields.io/badge/FastAPI-2.0-009688?style=for-the-badge&logo=fastapi&logoColor=white"/>
-  <img src="https://img.shields.io/badge/Docker-ready-2496ED?style=for-the-badge&logo=docker&logoColor=white"/>
-  <img src="https://img.shields.io/badge/A4-300_DPI-ff5c7a?style=for-the-badge"/>
-  <img src="https://img.shields.io/badge/feito_com-♥_para_Dublin-7b5cfa?style=for-the-badge"/>
-  <img src="https://img.shields.io/badge/Sistemas_Web-SC-4af0c8?style=for-the-badge"/>
-</p>
+![giph5lens typing](https://readme-typing-svg.demolab.com?font=Space+Mono&size=24&pause=3000&color=4AF0C8&center=true&vCenter=true&width=700&lines=giph5lens+🔮;Quando+o+Código+Vira+Lembrança;Microtube+Print+Spooler)
 
-<h1 align="center">Quando o Código Vira Lembrança</h1>
+![Python](https://img.shields.io/badge/Python-3.12-3776AB?style=for-the-badge&logo=python&logoColor=white) ![FastAPI](https://img.shields.io/badge/FastAPI-2.0-009688?style=for-the-badge&logo=fastapi&logoColor=white) ![Docker](https://img.shields.io/badge/Docker-ready-2496ED?style=for-the-badge&logo=docker&logoColor=white) ![A4](https://img.shields.io/badge/A4-300_DPI-ff5c7a?style=for-the-badge) ![feito_com](https://img.shields.io/badge/feito_com-♥_para_Dublin-7b5cfa?style=for-the-badge) ![Stack](https://img.shields.io/badge/Sistemas_Web-SC-4af0c8?style=for-the-badge)
 
-<p align="center">
-  <i>Como um presente de Dia dos Namorados virou um Print Spooler, dois repositórios e um laboratório de óptica em miniatura.</i>
-</p>
+# Quando o Código Vira Lembrança
+
+> _Como um presente de Dia dos Namorados virou um Print Spooler, dois repositórios e um laboratório de óptica em miniatura._
 
 ---
 
@@ -113,6 +104,26 @@ graph TD
 O problema que ele resolve parece pequeno mas é mais crítico do que parece: quando você trabalha com elementos ópticos e microtubos, um redimensionamento automático de apenas 2 mm por parte do driver da impressora já compromete o resultado. O giph5lens funciona como um **Print Spooler especializado** — embute os metadados de DPI no TIFF de saída e orienta o usuário para imprimir em tamanho real, sem escalonamento.
 
 ---
+
+## ✨ Novidades (atualização)
+
+- Suporte a múltiplas imagens no upload (frontend aceita `multiple`).
+- Opção `Repetir para preencher A4`: se ativada (`repeat`), as imagens selecionadas são ciclicamente repetidas até preencher a folha A4; se desativada, apenas as imagens enviadas serão colocadas e as posições restantes ficarão em branco.
+- Botão `Limpar` para resetar o formulário e subir novas imagens do zero.
+- Botão `Imprimir/PDF`: abre uma janela com o preview e aciona `window.print()` — útil para gerar um PDF local sem gastar tinta.
+- API: o endpoint `/api/process` agora aceita múltiplos arquivos (`file=@a.jpg -F file=@b.jpg`) e recebe o campo `repeat` com valores `repeat` ou `no-repeat`.
+
+Exemplo `curl` para múltiplos arquivos:
+
+```bash
+curl -X POST http://localhost:8000/api/process \
+  -F "file=@foto1.jpg" \
+  -F "file=@foto2.jpg" \
+  -F "dpi=300" \
+  -F "gap_mm=2" \
+  -F "margin_mm=8" \
+  -F "repeat=repeat"
+```
 
 ## 🧮 A matemática do grid
 
@@ -373,11 +384,6 @@ git push origin feat/minha-contribuicao
 
 ---
 
-<p align="center">
-  <sub>
-    Sistemas Web · Santa Catarina · último semestre<br/>
-    Maker nas horas vagas · entusiasta de tudo que vira objeto físico<br/><br/>
-    <b>giph5lens</b> — quando o código vira lembrança<br/>
-    feito com ♥ e muito <code>Pillow</code> para Dublin
-  </sub>
-</p>
+Sistemas Web · Santa Catarina · último semestre · Maker nas horas vagas · entusiasta de tudo que vira objeto físico
+
+**giph5lens** — quando o código vira lembrança · feito com ♥ e muito Pillow para Dublin

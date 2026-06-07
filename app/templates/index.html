@@ -1,628 +1,434 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Lenticular Microtube Creator</title>
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>giph5lens — Monocle Print Spooler</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
 <style>
-  /* ── RESET & TOKENS ─────────────────────────────────────────── */
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#060810;--surface:#0d1120;--border:rgba(100,180,255,.12);--border-hi:rgba(100,180,255,.32);
+  --text:#c8d8f0;--muted:#566070;--accent:#4af0c8;--accent2:#7b5cfa;--error:#ff5c7a;--warn:#f0a04a;
+  --radius:10px;--mono:'Space Mono',monospace;--sans:'DM Sans',sans-serif;
+}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:15px;min-height:100vh;display:flex;flex-direction:column;align-items:center}
+header{width:100%;max-width:820px;padding:44px 24px 0;text-align:center}
+.logo{font-family:var(--mono);font-size:11px;letter-spacing:.25em;color:var(--accent);text-transform:uppercase;margin-bottom:10px;opacity:.75}
+h1{font-family:var(--mono);font-size:clamp(20px,4.5vw,30px);font-weight:700;color:#e8f4ff;margin-bottom:8px}
+h1 span{color:var(--accent)}
+.sub{color:var(--muted);font-size:13px;max-width:540px;margin:0 auto 32px;line-height:1.75}
 
-  :root {
-    --bg:         #060810;
-    --surface:    #0d1120;
-    --border:     rgba(100,180,255,.12);
-    --border-hi:  rgba(100,180,255,.35);
-    --text:       #c8d8f0;
-    --muted:      #566070;
-    --accent:     #4af0c8;
-    --accent2:    #7b5cfa;
-    --error:      #ff5c7a;
-    --radius:     10px;
-    --mono:       'Space Mono', monospace;
-    --sans:       'DM Sans', sans-serif;
-  }
+/* spec strip */
+.spec-strip{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin-bottom:36px;max-width:620px}
+.spec-chip{font-family:var(--mono);font-size:10px;letter-spacing:.08em;padding:4px 10px;border:1px solid var(--border-hi);border-radius:20px;color:var(--accent);background:rgba(74,240,200,.04)}
 
-  body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: var(--sans);
-    font-size: 15px;
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-  }
+.pipeline{width:100%;max-width:820px;padding:0 24px;display:flex;flex-direction:column;gap:14px}
+.step{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:22px 26px;transition:border-color .2s}
+.step.active{border-color:var(--border-hi)}.step.done{border-color:rgba(74,240,200,.22)}.step.error{border-color:rgba(255,92,122,.28)}
+.step-head{display:flex;align-items:center;gap:12px;margin-bottom:16px}
+.step-num{width:26px;height:26px;border-radius:50%;border:1.5px solid var(--border-hi);display:grid;place-items:center;font-family:var(--mono);font-size:11px;color:var(--accent);flex-shrink:0}
+.step.done .step-num{background:var(--accent);border-color:var(--accent);color:#060810}
+.step.done .step-num::after{content:'✓';font-size:12px;font-weight:700}
+.step-title{font-family:var(--mono);font-size:11px;letter-spacing:.1em;color:#e0eeff;text-transform:uppercase}
 
-  /* ── NOISE OVERLAY ─────────────────────────────────────────── */
-  body::before {
-    content: '';
-    position: fixed; inset: 0; z-index: 0; pointer-events: none;
-    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
-    background-size: 180px;
-    opacity: .55;
-  }
+/* dropzone */
+.dz{border:1.5px dashed var(--border-hi);border-radius:8px;padding:28px 16px;text-align:center;cursor:pointer;transition:background .2s,border-color .2s;background:rgba(100,180,255,.02)}
+.dz:hover,.dz.over{background:rgba(100,180,255,.05);border-color:var(--accent)}
+.dz input{display:none}
+.dz-icon{font-size:26px;margin-bottom:6px}
+.dz-label{font-size:13px;color:var(--muted);line-height:1.6}
+.dz-label strong{color:var(--accent)}
+.thumb-row{display:none;align-items:center;gap:14px;margin-top:14px}
+.thumb-row.vis{display:flex}
+.thumb-img{width:88px;height:64px;border-radius:5px;object-fit:cover;border:1px solid var(--border-hi)}
+.thumb-info{font-size:12px;color:var(--muted);line-height:1.9}
+.thumb-info strong{color:var(--text);display:block;font-size:13px}
+.warn-badge{display:none;margin-top:8px;padding:6px 12px;background:rgba(240,160,74,.08);border:1px solid rgba(240,160,74,.25);border-radius:6px;font-size:12px;color:var(--warn);font-family:var(--mono)}
+.warn-badge.vis{display:block}
 
-  /* ── HEADER ─────────────────────────────────────────────────── */
-  header {
-    position: relative; z-index: 1;
-    width: 100%; max-width: 760px;
-    padding: 52px 24px 0;
-    text-align: center;
-  }
+/* mode tabs */
+.mode-tabs{display:flex;gap:8px;margin-bottom:16px}
+.tab{flex:1;padding:9px;border:1px solid var(--border);border-radius:7px;background:transparent;color:var(--muted);font-family:var(--mono);font-size:11px;letter-spacing:.06em;cursor:pointer;transition:all .2s;text-transform:uppercase}
+.tab.active{border-color:var(--accent);color:var(--accent);background:rgba(74,240,200,.05)}
 
-  .logo-line {
-    font-family: var(--mono);
-    font-size: 11px;
-    letter-spacing: .25em;
-    color: var(--accent);
-    text-transform: uppercase;
-    margin-bottom: 12px;
-    opacity: .8;
-  }
+/* params */
+.params-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px}
+.pf label{display:block;font-family:var(--mono);font-size:10px;letter-spacing:.1em;color:var(--muted);text-transform:uppercase;margin-bottom:5px}
+.pf input,.pf select{width:100%;background:rgba(100,180,255,.03);border:1px solid var(--border);border-radius:6px;padding:7px 10px;color:var(--text);font-family:var(--mono);font-size:13px;outline:none;transition:border-color .2s}
+.pf input:focus,.pf select:focus{border-color:var(--accent)}
+.pf .hint{font-size:10.5px;color:var(--muted);margin-top:3px;line-height:1.5}
 
-  h1 {
-    font-family: var(--mono);
-    font-size: clamp(22px, 5vw, 34px);
-    font-weight: 700;
-    line-height: 1.15;
-    letter-spacing: -.02em;
-    color: #e8f4ff;
-    margin-bottom: 14px;
-  }
+/* layout badge */
+.layout-badge{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-top:14px;padding:10px 14px;background:rgba(74,240,200,.04);border:1px solid rgba(74,240,200,.14);border-radius:7px;font-family:var(--mono);font-size:11px}
+.badge-count{font-size:20px;font-weight:700;color:var(--accent)}
+.badge-sub{color:var(--muted);line-height:1.8}
 
-  h1 span { color: var(--accent); }
+/* monocle preview pill */
+.monocle-pill{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border:1px solid var(--border-hi);border-radius:20px;font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:10px}
+.monocle-pill span{color:var(--accent)}
 
-  .subtitle {
-    color: var(--muted);
-    font-size: 13.5px;
-    font-weight: 300;
-    max-width: 480px;
-    margin: 0 auto 48px;
-    line-height: 1.7;
-  }
+/* btn */
+.btn-run{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;margin-top:10px;padding:13px;background:linear-gradient(135deg,var(--accent2),var(--accent));border:none;border-radius:8px;color:#060810;font-family:var(--mono);font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;transition:opacity .2s,transform .1s}
+.btn-run:disabled{opacity:.35;cursor:not-allowed}
+.btn-run:not(:disabled):hover{opacity:.85}
+.btn-run:not(:disabled):active{transform:scale(.98)}
 
-  /* ── PIPELINE STEPS ─────────────────────────────────────────── */
-  .pipeline {
-    position: relative; z-index: 1;
-    width: 100%; max-width: 760px;
-    padding: 0 24px;
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-  }
+/* progress */
+.prog-track{height:3px;background:var(--border);border-radius:3px;overflow:hidden;margin-top:14px;display:none}
+.prog-track.vis{display:block}
+.prog-bar{height:100%;background:linear-gradient(90deg,var(--accent2),var(--accent));width:0%;transition:width .4s ease}
+.status-msg{font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:8px;min-height:16px}
+.status-msg.ok{color:var(--accent)}.status-msg.err{color:var(--error)}
 
-  .step {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 28px 32px;
-    transition: border-color .2s;
-  }
-  .step.active  { border-color: var(--border-hi); }
-  .step.done    { border-color: rgba(74,240,200,.25); }
-  .step.error   { border-color: rgba(255,92,122,.3); }
+/* result */
+.result-panel{display:none;flex-direction:column;align-items:center;gap:16px}
+.result-panel.vis{display:flex}
+.preview-wrap{border:1px solid var(--border-hi);border-radius:6px;overflow:hidden;box-shadow:0 0 30px rgba(74,240,200,.07)}
+.preview-wrap img{display:block;max-width:100%;height:auto;max-height:560px}
+.result-meta{font-family:var(--mono);font-size:11px;color:var(--muted);text-align:center;line-height:2}
+.result-meta strong{color:var(--accent)}
+.btn-dl{display:flex;align-items:center;gap:8px;padding:10px 24px;background:transparent;border:1.5px solid var(--accent);border-radius:8px;color:var(--accent);font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;text-decoration:none;transition:background .2s,color .2s}
+.btn-dl:hover{background:var(--accent);color:#060810}
+.print-tip{background:rgba(123,92,250,.06);border:1px solid rgba(123,92,250,.18);border-radius:8px;padding:12px 16px;font-size:12px;line-height:1.85;color:var(--muted);max-width:480px;text-align:center}
+.print-tip strong{color:#e0eeff}
 
-  .step-head {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    margin-bottom: 20px;
-  }
-
-  .step-num {
-    width: 30px; height: 30px;
-    border-radius: 50%;
-    border: 1.5px solid var(--border-hi);
-    display: grid; place-items: center;
-    font-family: var(--mono);
-    font-size: 12px;
-    color: var(--accent);
-    flex-shrink: 0;
-    transition: background .3s, border-color .3s;
-  }
-  .step.done .step-num { background: var(--accent); border-color: var(--accent); color: #060810; }
-  .step.done .step-num::after { content: '✓'; font-size: 13px; font-weight: 700; }
-
-  .step-title {
-    font-family: var(--mono);
-    font-size: 13px;
-    letter-spacing: .08em;
-    color: #e0eeff;
-    text-transform: uppercase;
-  }
-
-  /* ── DROP ZONE ───────────────────────────────────────────────── */
-  .dropzone {
-    border: 1.5px dashed var(--border-hi);
-    border-radius: 8px;
-    padding: 36px 20px;
-    text-align: center;
-    cursor: pointer;
-    transition: background .2s, border-color .2s;
-    background: rgba(100,180,255,.02);
-  }
-  .dropzone:hover, .dropzone.drag-over {
-    background: rgba(100,180,255,.06);
-    border-color: var(--accent);
-  }
-
-  .dropzone input { display: none; }
-
-  .drop-icon { font-size: 30px; margin-bottom: 10px; }
-  .drop-label { font-size: 13px; color: var(--muted); line-height: 1.6; }
-  .drop-label strong { color: var(--accent); font-weight: 500; }
-
-  /* ── THUMBNAILS ──────────────────────────────────────────────── */
-  .thumbs {
-    display: flex;
-    gap: 12px;
-    flex-wrap: wrap;
-    margin-top: 16px;
-  }
-
-  .thumb {
-    position: relative;
-    width: 80px; height: 80px;
-    border-radius: 6px;
-    overflow: hidden;
-    border: 1px solid var(--border-hi);
-  }
-  .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
-  .thumb-label {
-    position: absolute; bottom: 0; left: 0; right: 0;
-    font-family: var(--mono); font-size: 9px;
-    background: rgba(6,8,16,.75);
-    color: var(--accent); text-align: center;
-    padding: 2px 0;
-  }
-  .thumb-remove {
-    position: absolute; top: 3px; right: 3px;
-    background: rgba(255,92,122,.85);
-    border: none; color: white;
-    width: 16px; height: 16px;
-    border-radius: 50%;
-    font-size: 9px; cursor: pointer;
-    display: grid; place-items: center;
-    line-height: 1;
-  }
-
-  /* ── PARAMS ──────────────────────────────────────────────────── */
-  .params-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-    gap: 16px;
-  }
-
-  .param-field label {
-    display: block;
-    font-family: var(--mono);
-    font-size: 10px;
-    letter-spacing: .12em;
-    color: var(--muted);
-    text-transform: uppercase;
-    margin-bottom: 6px;
-  }
-
-  .param-field input {
-    width: 100%;
-    background: rgba(100,180,255,.04);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    padding: 9px 12px;
-    color: var(--text);
-    font-family: var(--mono);
-    font-size: 14px;
-    outline: none;
-    transition: border-color .2s;
-  }
-  .param-field input:focus { border-color: var(--accent); }
-
-  .param-hint {
-    font-size: 11px; color: var(--muted);
-    margin-top: 5px; line-height: 1.5;
-  }
-
-  /* ── MATH PREVIEW ────────────────────────────────────────────── */
-  .math-box {
-    background: rgba(74,240,200,.04);
-    border: 1px solid rgba(74,240,200,.15);
-    border-radius: 8px;
-    padding: 16px 20px;
-    font-family: var(--mono);
-    font-size: 12px;
-    line-height: 2;
-    color: var(--muted);
-    margin-top: 16px;
-  }
-  .math-box span { color: var(--accent); font-weight: 700; }
-
-  /* ── BUTTON ──────────────────────────────────────────────────── */
-  .btn-process {
-    display: flex; align-items: center; justify-content: center; gap: 10px;
-    width: 100%; margin-top: 12px;
-    padding: 15px;
-    background: linear-gradient(135deg, var(--accent2), var(--accent));
-    border: none; border-radius: 8px;
-    color: #060810;
-    font-family: var(--mono); font-size: 13px; font-weight: 700;
-    letter-spacing: .1em; text-transform: uppercase;
-    cursor: pointer;
-    transition: opacity .2s, transform .1s;
-  }
-  .btn-process:disabled { opacity: .4; cursor: not-allowed; }
-  .btn-process:not(:disabled):hover { opacity: .88; }
-  .btn-process:not(:disabled):active { transform: scale(.98); }
-
-  /* ── PROGRESS ────────────────────────────────────────────────── */
-  .progress-track {
-    height: 3px;
-    background: var(--border);
-    border-radius: 3px;
-    overflow: hidden;
-    margin-top: 16px;
-    display: none;
-  }
-  .progress-track.visible { display: block; }
-
-  .progress-bar {
-    height: 100%;
-    background: linear-gradient(90deg, var(--accent2), var(--accent));
-    border-radius: 3px;
-    width: 0%;
-    transition: width .4s ease;
-    animation: pulse-bar 1.5s ease-in-out infinite;
-  }
-  @keyframes pulse-bar {
-    0%, 100% { opacity: 1; } 50% { opacity: .6; }
-  }
-
-  .status-msg {
-    font-family: var(--mono); font-size: 12px;
-    color: var(--muted); margin-top: 10px;
-    min-height: 18px;
-  }
-  .status-msg.ok    { color: var(--accent); }
-  .status-msg.err   { color: var(--error); }
-
-  /* ── RESULT PANEL ────────────────────────────────────────────── */
-  .result-panel {
-    display: none;
-    flex-direction: column;
-    align-items: center;
-    gap: 20px;
-  }
-  .result-panel.visible { display: flex; }
-
-  .preview-wrap {
-    position: relative;
-    width: 220px; height: 220px;
-    border-radius: 50%;
-    overflow: hidden;
-    border: 2px solid var(--border-hi);
-    box-shadow: 0 0 40px rgba(74,240,200,.15);
-  }
-  .preview-wrap img { width: 100%; height: 100%; object-fit: cover; }
-
-  .preview-label {
-    font-family: var(--mono); font-size: 11px;
-    color: var(--muted); text-align: center; letter-spacing: .1em;
-  }
-
-  .btn-download {
-    display: flex; align-items: center; gap: 8px;
-    padding: 12px 28px;
-    background: transparent;
-    border: 1.5px solid var(--accent);
-    border-radius: 8px;
-    color: var(--accent);
-    font-family: var(--mono); font-size: 12px; font-weight: 700;
-    letter-spacing: .1em; text-transform: uppercase;
-    cursor: pointer;
-    transition: background .2s, color .2s;
-    text-decoration: none;
-  }
-  .btn-download:hover { background: var(--accent); color: #060810; }
-
-  .print-tip {
-    background: rgba(123,92,250,.08);
-    border: 1px solid rgba(123,92,250,.2);
-    border-radius: 8px;
-    padding: 14px 18px;
-    font-size: 12.5px;
-    line-height: 1.7;
-    color: var(--muted);
-    max-width: 440px;
-    text-align: center;
-  }
-  .print-tip strong { color: #e0eeff; }
-
-  /* ── FOOTER ─────────────────────────────────────────────────── */
-  footer {
-    position: relative; z-index: 1;
-    margin-top: 60px; padding: 24px;
-    font-family: var(--mono); font-size: 11px;
-    color: var(--muted); letter-spacing: .08em;
-    text-align: center;
-  }
+footer{margin-top:48px;padding:20px;font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:.08em;text-align:center}
 </style>
 </head>
 <body>
 
 <header>
-  <p class="logo-line">⬡ lenticular microtube creator v1.0</p>
-  <h1>Microtube <span>Lenticular</span><br/>Entrelaçador</h1>
-  <p class="subtitle">
-    Gere imagens entrelaçadas para microtubo 5 × 5 cm.<br/>
-    100 LPI · 300 DPI · saída TIFF pronta para impressão.
-  </p>
+  <p class="logo">⬡ giph5lens · monocle print spooler v2</p>
+  <h1>Monóculo <span>Fotográfico</span> — Refil Printer</h1>
+  <p class="sub">Suba uma foto · a API converte para as medidas exatas do monóculo · baixe pronto para gráfica.</p>
+  <div class="spec-strip">
+    <span class="spec-chip">26 × 19 mm</span>
+    <span class="spec-chip">307 × 224 px</span>
+    <span class="spec-chip">300 DPI</span>
+    <span class="spec-chip">bleed 0.5 mm</span>
+    <span class="spec-chip">border-radius 1 mm</span>
+    <span class="spec-chip">91 por folha A4</span>
+    <span class="spec-chip">cover crop centralizado</span>
+  </div>
 </header>
 
 <main class="pipeline">
 
-  <!-- STEP 1: Upload -->
+  <!-- STEP 1 -->
   <section class="step active" id="step-upload">
-    <div class="step-head">
-      <div class="step-num" id="num-1">1</div>
-      <span class="step-title">Upload dos Frames</span>
+    <div class="step-head"><div class="step-num" id="num-1">1</div><span class="step-title">Foto</span></div>
+    <div class="dz" id="dz">
+      <input type="file" id="fi" accept="image/*" multiple/>
+      <div class="dz-icon">📷</div>
+      <p class="dz-label"><strong>Clique ou arraste</strong> a foto aqui.<br/>
+      JPG · PNG · qualquer proporção. Você pode selecionar múltiplas imagens. Cover crop centralizado automático.</p>
     </div>
-
-    <div class="dropzone" id="dropzone">
-      <input type="file" id="file-input" accept="image/*" multiple />
-      <div class="drop-icon">🖼</div>
-      <p class="drop-label">
-        <strong>Clique ou arraste</strong> 2 a 4 frames aqui.<br/>
-        Recomendado: 1500 × 1500 px, JPEG ou PNG.
-      </p>
+    <div class="thumb-row" id="thumb-row">
+      <img class="thumb-img" id="thumb-img" src="" alt="preview"/>
+      <div class="thumb-info">
+        <strong id="t-name"></strong>
+        <span id="t-size"></span><br/>
+        <span id="t-dims"></span>
+        <div id="t-count" style="font-size:12px;color:var(--muted)"></div>
+      </div>
     </div>
-
-    <div class="thumbs" id="thumbs"></div>
+    <div class="warn-badge" id="warn-badge">⚠️ crop_loss_risk = high — foto com proporção muito diferente de 26:19. Confira o preview antes de imprimir.</div>
+    <div class="monocle-pill">Monóculo: <span>26 × 19 mm</span> · canvas: <span>307 × 224 px</span> · bleed: <span>319 × 236 px</span></div>
   </section>
 
-  <!-- STEP 2: Params -->
+  <!-- STEP 2 -->
   <section class="step" id="step-params">
-    <div class="step-head">
-      <div class="step-num" id="num-2">2</div>
-      <span class="step-title">Parâmetros de Impressão</span>
+    <div class="step-head"><div class="step-num" id="num-2">2</div><span class="step-title">Parâmetros</span></div>
+
+    <div class="mode-tabs">
+      <button class="tab active" id="tab-a4" onclick="setMode('a4')">📄 Folha A4 completa</button>
+      <button class="tab" id="tab-single" onclick="setMode('single')">🔍 Monóculo único</button>
     </div>
 
     <div class="params-grid">
-      <div class="param-field">
-        <label>LPI (linhas/pol.)</label>
-        <input type="number" id="p-lpi" value="100" min="60" max="200" />
-        <p class="param-hint">Folha lenticular padrão = 100 LPI</p>
+      <div class="pf">
+        <label>DPI</label>
+        <input type="number" id="p-dpi" value="300" min="150" max="600"/>
+        <p class="hint">300 = padrão gráfica</p>
       </div>
-      <div class="param-field">
-        <label>DPI (impressora)</label>
-        <input type="number" id="p-dpi" value="300" min="150" max="600" />
-        <p class="param-hint">Foto lab = 300 DPI mínimo</p>
+      <div class="pf">
+        <label>Bleed</label>
+        <select id="p-bleed">
+          <option value="true" selected>Sim (0.5 mm)</option>
+          <option value="false">Não</option>
+        </select>
+        <p class="hint">evita borda branca no corte</p>
       </div>
-      <div class="param-field">
-        <label>Tamanho (cm)</label>
-        <input type="number" id="p-size" value="5.0" min="2" max="20" step="0.5" />
-        <p class="param-hint">Microtube padrão = 5 × 5 cm</p>
+      <div class="pf">
+        <label>Cantos</label>
+        <select id="p-corners">
+          <option value="true" selected>Arredondados (1 mm)</option>
+          <option value="false">Retos</option>
+        </select>
+        <p class="hint">border-radius do monóculo</p>
+      </div>
+      <div class="pf">
+        <label>Modo impressão</label>
+        <select id="p-enhance">
+          <option value="false" selected>Papel fotográfico</option>
+          <option value="true">Acetato / Transparência</option>
+        </select>
+        <p class="hint">acetato: +15% contraste +20% sat</p>
+      </div>
+      <div class="pf">
+        <label>Formato</label>
+        <select id="p-format">
+          <option value="PNG" selected>PNG (lossless)</option>
+          <option value="TIFF">TIFF (máx. fidelidade)</option>
+        </select>
+        <p class="hint">TIFF para gráfica profissional</p>
+      </div>
+      <div class="pf" id="gap-field">
+        <label>Gap (mm)</label>
+        <input type="number" id="p-gap" value="2" min="1" max="8" step="0.5"/>
+        <p class="hint">espaço entre monóculos</p>
+      </div>
+      <div class="pf">
+        <label>Repetir para preencher A4</label>
+        <select id="p-repeat">
+          <option value="repeat" selected>Sim — repetir em loop</option>
+          <option value="no-repeat">Não — só as selecionadas</option>
+        </select>
+        <p class="hint">Se não repetir, as posições vazias ficam em branco.</p>
       </div>
     </div>
 
-    <div class="math-box" id="math-box">
-      <!-- preenchido via JS -->
+    <div class="layout-badge" id="layout-badge">
+      <span class="badge-count" id="b-count">…</span>
+      <span class="badge-sub" id="b-sub">calculando…</span>
     </div>
   </section>
 
-  <!-- STEP 3: Process -->
+  <!-- STEP 3 -->
   <section class="step" id="step-process">
-    <div class="step-head">
-      <div class="step-num" id="num-3">3</div>
-      <span class="step-title">Processar Entrelaçamento</span>
+    <div class="step-head"><div class="step-num" id="num-3">3</div><span class="step-title">Processar</span></div>
+    <div style="display:flex;gap:8px">
+      <button class="btn-run" id="btn-run" style="flex:1" disabled>▶ &nbsp;Gerar Arquivo de Impressão</button>
+      <button id="btn-reset" style="padding:11px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer">⟲ Limpar</button>
     </div>
-
-    <button class="btn-process" id="btn-run" disabled>
-      ▶ &nbsp;Gerar Imagem Entrelaçada
-    </button>
-
-    <div class="progress-track" id="progress-track">
-      <div class="progress-bar" id="progress-bar" style="width:15%"></div>
-    </div>
+    <div class="prog-track" id="prog-track"><div class="prog-bar" id="prog-bar"></div></div>
     <p class="status-msg" id="status-msg"></p>
   </section>
 
-  <!-- STEP 4: Result -->
+  <!-- STEP 4 -->
   <section class="step" id="step-result">
-    <div class="step-head">
-      <div class="step-num" id="num-4">4</div>
-      <span class="step-title">Download & Impressão</span>
-    </div>
-
+    <div class="step-head"><div class="step-num" id="num-4">4</div><span class="step-title">Download</span></div>
     <div class="result-panel" id="result-panel">
-      <div class="preview-wrap">
-        <img id="preview-img" src="" alt="Preview entrelaçado" />
+      <div class="preview-wrap"><img id="preview-img" src="" alt="Preview"/></div>
+      <p class="result-meta" id="result-meta"></p>
+      <div style="display:flex;gap:10px;align-items:center">
+        <a class="btn-dl" id="btn-dl" href="#" download>↓ &nbsp;Baixar arquivo de impressão</a>
+        <button id="btn-print" class="btn-dl" style="background:transparent;border-color:var(--accent);color:var(--accent)">🖨️ &nbsp;Imprimir/PDF</button>
       </div>
-      <p class="preview-label">↑ simulação de como ficará no microtube</p>
-
-      <a class="btn-download" id="btn-download" href="#" download>
-        ↓ &nbsp;Baixar TIFF (impressão 1:1)
-      </a>
-
       <div class="print-tip">
         <strong>Como imprimir:</strong><br/>
-        Envie o TIFF para uma gráfica ou impressora fotográfica.<br/>
-        Defina tamanho <strong>5 × 5 cm</strong> sem escalonamento automático.<br/>
-        Papel fotográfico brilhante 300g+ recomendado.
+        Envie para a gráfica ou impressora fotográfica.<br/>
+        Selecione <strong>tamanho real · 100% · sem ajuste automático</strong>.<br/>
+        Papel fotográfico glossy 200g+ ou acetato (modo transparência).
       </div>
     </div>
   </section>
 
 </main>
 
-<footer>made with ♥ para o dia dos namorados · lenticular microtube creator</footer>
+<footer>giph5lens v2 · 26×19 mm · 307×224 px · 91 por A4 · feito com ♥ para Dublin</footer>
 
 <script>
-  // ── STATE ──────────────────────────────────────────────────────────────
-  let selectedFiles = [];
-  let currentJobId  = null;
-  let pollTimer     = null;
+let files = [], jobId = null, pollTimer = null, mode = 'a4';
 
-  // ── DOM refs ───────────────────────────────────────────────────────────
-  const dropzone     = document.getElementById('dropzone');
-  const fileInput    = document.getElementById('file-input');
-  const thumbsEl     = document.getElementById('thumbs');
-  const btnRun       = document.getElementById('btn-run');
-  const statusMsg    = document.getElementById('status-msg');
-  const progressTrack= document.getElementById('progress-track');
-  const progressBar  = document.getElementById('progress-bar');
-  const resultPanel  = document.getElementById('result-panel');
-  const previewImg   = document.getElementById('preview-img');
-  const btnDownload  = document.getElementById('btn-download');
-  const mathBox      = document.getElementById('math-box');
+const dz         = document.getElementById('dz');
+const fi         = document.getElementById('fi');
+const thumbRow   = document.getElementById('thumb-row');
+const thumbImg   = document.getElementById('thumb-img');
+const warnBadge  = document.getElementById('warn-badge');
+const btnRun     = document.getElementById('btn-run');
+const progTrack  = document.getElementById('prog-track');
+const progBar    = document.getElementById('prog-bar');
+const statusMsg  = document.getElementById('status-msg');
+const resultPanel= document.getElementById('result-panel');
+const previewImg = document.getElementById('preview-img');
+const btnDl      = document.getElementById('btn-dl');
+const resultMeta = document.getElementById('result-meta');
+const bCount     = document.getElementById('b-count');
+const bSub       = document.getElementById('b-sub');
+const btnReset   = document.getElementById('btn-reset');
+const btnPrint   = document.getElementById('btn-print');
 
-  // param inputs
-  const pLpi  = document.getElementById('p-lpi');
-  const pDpi  = document.getElementById('p-dpi');
-  const pSize = document.getElementById('p-size');
+dz.addEventListener('click', () => fi.click());
+dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('over'); });
+dz.addEventListener('dragleave', () => dz.classList.remove('over'));
+dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('over'); setFiles(e.dataTransfer.files); });
+fi.addEventListener('change', () => setFiles(fi.files));
 
-  // ── DROP ZONE ──────────────────────────────────────────────────────────
-  dropzone.addEventListener('click', () => fileInput.click());
-  dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('drag-over'); });
-  dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag-over'));
-  dropzone.addEventListener('drop', e => {
-    e.preventDefault(); dropzone.classList.remove('drag-over');
-    addFiles([...e.dataTransfer.files]);
-  });
-  fileInput.addEventListener('change', () => addFiles([...fileInput.files]));
+function setFiles(flist) {
+  const arr = Array.from(flist || []);
+  if (arr.length === 0) return;
+  files = arr.filter(f => f.type && f.type.startsWith('image/'));
+  if (files.length === 0) return;
+  const first = files[0];
+  const url = URL.createObjectURL(first);
+  thumbImg.src = url;
+  document.getElementById('t-name').textContent = first.name;
+  document.getElementById('t-size').textContent = (first.size/1024).toFixed(0) + ' KB';
+  document.getElementById('t-count').textContent = files.length > 1 ? files.length + ' imagens selecionadas' : '';
+  const imgEl = new Image();
+  imgEl.onload = () => {
+    document.getElementById('t-dims').textContent = imgEl.width + '×' + imgEl.height + ' px';
+    const srcAr = imgEl.width / imgEl.height;
+    const tgtAr = 307 / 224;
+    const diff  = Math.abs(srcAr - tgtAr) / tgtAr;
+    warnBadge.classList.toggle('vis', diff > 0.35);
+  };
+  imgEl.src = url;
+  thumbRow.classList.add('vis');
+  btnRun.disabled = false;
+  fetchBadge();
+}
 
-  function addFiles(newFiles) {
-    newFiles.forEach(f => {
-      if (selectedFiles.length >= 4) return;
-      if (!f.type.startsWith('image/')) return;
-      selectedFiles.push(f);
+function setMode(m) {
+  mode = m;
+  document.getElementById('tab-a4').classList.toggle('active', m === 'a4');
+  document.getElementById('tab-single').classList.toggle('active', m === 'single');
+  document.getElementById('gap-field').style.opacity = m === 'a4' ? '1' : '0.35';
+  fetchBadge();
+}
+
+async function fetchBadge() {
+  if (mode === 'single') {
+    bCount.textContent = '1';
+    bSub.textContent   = 'monóculo único · 26×19 mm · 307×224 px (+ bleed: 319×236 px)';
+    return;
+  }
+  try {
+    const params = new URLSearchParams({
+      dpi: document.getElementById('p-dpi').value,
+      gap_mm: document.getElementById('p-gap').value,
+      margin_mm: 8,
     });
-    renderThumbs();
-    updateMath();
-    syncButton();
+    const r = await fetch('/api/layout-calc?' + params);
+    const d = await r.json();
+    bCount.textContent = d.total_per_a4 + ' monóculos';
+    bSub.textContent   = `${d.cols} colunas × ${d.rows} linhas · ${d.dpi} DPI · A4 210×297 mm`;
+  } catch { bSub.textContent = 'erro ao calcular'; }
+}
+
+['p-dpi','p-gap'].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) el.addEventListener('input', fetchBadge);
+});
+fetchBadge();
+
+if (btnReset) btnReset.addEventListener('click', resetForm);
+if (btnPrint) btnPrint.addEventListener('click', printAsPDF);
+
+btnRun.addEventListener('click', async () => {
+  if (!files || files.length === 0) return;
+  btnRun.disabled = true;
+  progTrack.classList.add('vis');
+  progBar.style.width = '8%';
+  setStatus('Enviando…', '');
+
+  const fd = new FormData();
+  for (const f of files) fd.append('file', f);
+  fd.append('mode',   mode);
+  fd.append('dpi',    document.getElementById('p-dpi').value);
+  fd.append('with_bleed',            document.getElementById('p-bleed').value);
+  fd.append('round_corners',         document.getElementById('p-corners').value);
+  fd.append('enhance_transparency',  document.getElementById('p-enhance').value);
+  fd.append('export_format',         document.getElementById('p-format').value);
+  fd.append('gap_mm',  document.getElementById('p-gap').value);
+  fd.append('margin_mm', '8');
+  fd.append('repeat', document.getElementById('p-repeat').value);
+
+  try {
+    const r = await fetch('/api/process', { method: 'POST', body: fd });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.detail || 'Erro');
+    jobId = d.job_id;
+    progBar.style.width = '28%';
+    setStatus('Processando imagem…', '');
+    pollTimer = setInterval(poll, 900);
+  } catch(e) {
+    setStatus('Erro: ' + e.message, 'err');
+    progTrack.classList.remove('vis');
+    btnRun.disabled = false;
   }
+});
 
-  function renderThumbs() {
-    thumbsEl.innerHTML = '';
-    selectedFiles.forEach((f, i) => {
-      const url = URL.createObjectURL(f);
-      const div = document.createElement('div');
-      div.className = 'thumb';
-      div.innerHTML = `
-        <img src="${url}" />
-        <span class="thumb-label">F${i+1}</span>
-        <button class="thumb-remove" data-i="${i}">×</button>`;
-      thumbsEl.appendChild(div);
-    });
-    thumbsEl.querySelectorAll('.thumb-remove').forEach(btn => {
-      btn.addEventListener('click', e => {
-        e.stopPropagation();
-        selectedFiles.splice(+btn.dataset.i, 1);
-        renderThumbs(); updateMath(); syncButton();
-      });
-    });
-  }
-
-  // ── MATH PREVIEW ──────────────────────────────────────────────────────
-  function updateMath() {
-    const lpi    = +pLpi.value  || 100;
-    const dpi    = +pDpi.value  || 300;
-    const size   = +pSize.value || 5.0;
-    const n      = selectedFiles.length || 4;
-    const totalPx = Math.round(size / 2.54 * dpi);
-    const strip   = (totalPx / (lpi * n)).toFixed(4);
-    mathBox.innerHTML = `
-      total_px = round(${size} / 2.54 × ${dpi}) = <span>${totalPx} px</span><br/>
-      n_frames = <span>${n}</span><br/>
-      strip    = ${totalPx} / (${lpi} × ${n}) = <span>${strip} px</span><br/>
-      ciclo    = strip × n_frames = <span>${(strip * n).toFixed(2)} px</span>
-    `;
-  }
-
-  [pLpi, pDpi, pSize].forEach(el => el.addEventListener('input', updateMath));
-  updateMath();
-
-  function syncButton() {
-    btnRun.disabled = selectedFiles.length < 2;
-  }
-
-  // ── PROCESS ───────────────────────────────────────────────────────────
-  btnRun.addEventListener('click', async () => {
-    if (selectedFiles.length < 2) return;
-
-    btnRun.disabled = true;
-    progressTrack.classList.add('visible');
-    progressBar.style.width = '10%';
-    setStatus('Enviando frames…', '');
-
-    const form = new FormData();
-    selectedFiles.forEach(f => form.append('files', f));
-    form.append('lpi',     pLpi.value);
-    form.append('dpi',     pDpi.value);
-    form.append('size_cm', pSize.value);
-
-    try {
-      const res  = await fetch('/api/process', { method: 'POST', body: form });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || 'Erro no servidor');
-
-      currentJobId = data.job_id;
-      progressBar.style.width = '35%';
-      setStatus('Processando entrelaçamento…', '');
-      pollTimer = setInterval(pollStatus, 1200);
-    } catch (err) {
-      setStatus('Erro: ' + err.message, 'err');
-      progressTrack.classList.remove('visible');
-      btnRun.disabled = false;
+async function poll() {
+  try {
+    const r = await fetch('/api/status/' + jobId);
+    const d = await r.json();
+    if (d.status === 'processing') { progBar.style.width = '65%'; setStatus(d.message, ''); }
+    if (d.status === 'done') {
+      clearInterval(pollTimer);
+      progBar.style.width = '100%';
+      setStatus(d.message, 'ok');
+      markDone(3); markDone(4);
+      showResult(d.info);
     }
-  });
+    if (d.status === 'error') {
+      clearInterval(pollTimer);
+      setStatus(d.message, 'err');
+      btnRun.disabled = false;
+      progTrack.classList.remove('vis');
+    }
+  } catch {}
+}
 
-  async function pollStatus() {
-    try {
-      const res  = await fetch(`/api/status/${currentJobId}`);
-      const data = await res.json();
-
-      if (data.status === 'processing') {
-        progressBar.style.width = '70%';
-        setStatus(data.message, '');
-      }
-      if (data.status === 'done') {
-        clearInterval(pollTimer);
-        progressBar.style.width = '100%';
-        setStatus('✓ ' + data.message, 'ok');
-        markDone(3);
-        markDone(4);
-        showResult();
-      }
-      if (data.status === 'error') {
-        clearInterval(pollTimer);
-        setStatus(data.message, 'err');
-        btnRun.disabled = false;
-        progressTrack.classList.remove('visible');
-      }
-    } catch { /* retry */ }
+function showResult(info) {
+  resultPanel.classList.add('vis');
+  previewImg.src = '/api/preview/' + jobId + '?t=' + Date.now();
+  btnDl.href     = '/api/download/' + jobId;
+  if (info) {
+    const risk = info.crop_loss_risk || 'low';
+    resultMeta.innerHTML =
+      `<strong>${info.output_px}</strong> · ${info.dpi} DPI · ${info.format}` +
+      (info.total_per_a4 ? ` · <strong>${info.total_per_a4} cópias A4</strong>` : '') +
+      (info.selected ? ` · ${info.selected} imagens selecionadas` : '') +
+      (info.repeated ? ` · imagens repetidas para preencher` : '') +
+      (risk === 'high' ? ` · <span style="color:var(--warn)">⚠ crop risk alto</span>` : '');
   }
+  document.getElementById('step-result').scrollIntoView({ behavior: 'smooth' });
+}
 
-  function showResult() {
-    resultPanel.classList.add('visible');
-    previewImg.src = `/api/preview/${currentJobId}?t=${Date.now()}`;
-    btnDownload.href = `/api/download/${currentJobId}`;
-    document.getElementById('step-result').scrollIntoView({ behavior: 'smooth' });
-  }
+// Reset button
+function resetForm() {
+  files = [];
+  fi.value = '';
+  thumbRow.classList.remove('vis');
+  warnBadge.classList.remove('vis');
+  btnRun.disabled = true;
+  resultPanel.classList.remove('vis');
+  progTrack.classList.remove('vis');
+  setStatus('', '');
+}
 
-  // ── HELPERS ────────────────────────────────────────────────────────────
-  function setStatus(msg, cls) {
-    statusMsg.textContent = msg;
-    statusMsg.className   = 'status-msg ' + cls;
-  }
+// Print as PDF (abre uma janela com preview e chama print)
+function printAsPDF() {
+  if (!jobId) return;
+  const w = window.open('/api/preview-print/' + jobId, '_blank');
+  if (!w) alert('Permita pop-ups para abrir a janela de impressão.');
+}
 
-  function markDone(n) {
-    const step = document.getElementById(`step-${['','upload','params','process','result'][n]}`);
-    const num  = document.getElementById(`num-${n}`);
-    if (step) { step.classList.remove('active'); step.classList.add('done'); }
-    if (num)  { num.innerHTML = ''; }
-  }
+function setStatus(msg, cls) {
+  statusMsg.textContent = msg;
+  statusMsg.className   = 'status-msg ' + cls;
+}
+
+function markDone(n) {
+  const ids = ['','upload','params','process','result'];
+  const step = document.getElementById('step-' + ids[n]);
+  const num  = document.getElementById('num-' + n);
+  if (step) { step.classList.remove('active'); step.classList.add('done'); }
+  if (num)  { num.innerHTML = ''; }
+}
 </script>
 </body>
 </html>
