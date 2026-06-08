@@ -8,157 +8,181 @@
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --bg:#060810;--surface:#0d1120;--border:rgba(100,180,255,.12);--border-hi:rgba(100,180,255,.32);
-  --text:#c8d8f0;--muted:#566070;--accent:#4af0c8;--accent2:#7b5cfa;--error:#ff5c7a;--warn:#f0a04a;
-  --radius:10px;--mono:'Space Mono',monospace;--sans:'DM Sans',sans-serif;
+  --bg:#060810;--surface:#0d1120;--border:rgba(100,180,255,.12);--hi:rgba(100,180,255,.32);
+  --text:#c8d8f0;--muted:#566070;--accent:#4af0c8;--accent2:#7b5cfa;--err:#ff5c7a;--warn:#f0a04a;
+  --r:10px;--mono:'Space Mono',monospace;--sans:'DM Sans',sans-serif;
 }
 body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:15px;min-height:100vh;display:flex;flex-direction:column;align-items:center}
-header{width:100%;max-width:820px;padding:44px 24px 0;text-align:center}
-.logo{font-family:var(--mono);font-size:11px;letter-spacing:.25em;color:var(--accent);text-transform:uppercase;margin-bottom:10px;opacity:.75}
-h1{font-family:var(--mono);font-size:clamp(20px,4.5vw,30px);font-weight:700;color:#e8f4ff;margin-bottom:8px}
+header{width:100%;max-width:820px;padding:40px 24px 0;text-align:center}
+.logo{font-family:var(--mono);font-size:11px;letter-spacing:.25em;color:var(--accent);text-transform:uppercase;margin-bottom:10px;opacity:.7}
+h1{font-family:var(--mono);font-size:clamp(18px,4vw,28px);font-weight:700;color:#e8f4ff;margin-bottom:8px}
 h1 span{color:var(--accent)}
-.sub{color:var(--muted);font-size:13px;max-width:540px;margin:0 auto 32px;line-height:1.75}
-
-/* spec strip */
-.spec-strip{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin-bottom:36px;max-width:620px}
-.spec-chip{font-family:var(--mono);font-size:10px;letter-spacing:.08em;padding:4px 10px;border:1px solid var(--border-hi);border-radius:20px;color:var(--accent);background:rgba(74,240,200,.04)}
+.sub{color:var(--muted);font-size:13px;max-width:520px;margin:0 auto 16px;line-height:1.75}
+.spec-strip{display:flex;flex-wrap:wrap;justify-content:center;gap:7px;margin-bottom:32px}
+.chip{font-family:var(--mono);font-size:10px;padding:3px 10px;border:1px solid var(--hi);border-radius:20px;color:var(--accent);background:rgba(74,240,200,.04)}
 
 .pipeline{width:100%;max-width:820px;padding:0 24px;display:flex;flex-direction:column;gap:14px}
-.step{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:22px 26px;transition:border-color .2s}
-.step.active{border-color:var(--border-hi)}.step.done{border-color:rgba(74,240,200,.22)}.step.error{border-color:rgba(255,92,122,.28)}
-.step-head{display:flex;align-items:center;gap:12px;margin-bottom:16px}
-.step-num{width:26px;height:26px;border-radius:50%;border:1.5px solid var(--border-hi);display:grid;place-items:center;font-family:var(--mono);font-size:11px;color:var(--accent);flex-shrink:0}
-.step.done .step-num{background:var(--accent);border-color:var(--accent);color:#060810}
-.step.done .step-num::after{content:'✓';font-size:12px;font-weight:700}
-.step-title{font-family:var(--mono);font-size:11px;letter-spacing:.1em;color:#e0eeff;text-transform:uppercase}
+.step{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:22px 26px;transition:border-color .2s}
+.step.active{border-color:var(--hi)}.step.done{border-color:rgba(74,240,200,.22)}.step.err{border-color:rgba(255,92,122,.28)}
+.sh{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.sh-left{display:flex;align-items:center;gap:12px}
+.sn{width:26px;height:26px;border-radius:50%;border:1.5px solid var(--hi);display:grid;place-items:center;font-family:var(--mono);font-size:11px;color:var(--accent);flex-shrink:0}
+.step.done .sn{background:var(--accent);border-color:var(--accent);color:#060810}
+.step.done .sn::after{content:'✓';font-size:12px;font-weight:700}
+.st{font-family:var(--mono);font-size:11px;letter-spacing:.1em;color:#e0eeff;text-transform:uppercase}
+
+/* reset btn */
+.btn-reset{font-family:var(--mono);font-size:10px;letter-spacing:.08em;padding:5px 12px;border:1px solid rgba(255,92,122,.3);border-radius:6px;background:transparent;color:var(--err);cursor:pointer;text-transform:uppercase;transition:background .2s,color .2s;display:none}
+.btn-reset:hover{background:rgba(255,92,122,.12)}
+.btn-reset.vis{display:block}
 
 /* dropzone */
-.dz{border:1.5px dashed var(--border-hi);border-radius:8px;padding:28px 16px;text-align:center;cursor:pointer;transition:background .2s,border-color .2s;background:rgba(100,180,255,.02)}
+.dz{border:1.5px dashed var(--hi);border-radius:8px;padding:28px 16px;text-align:center;cursor:pointer;background:rgba(100,180,255,.02);transition:background .2s,border-color .2s}
 .dz:hover,.dz.over{background:rgba(100,180,255,.05);border-color:var(--accent)}
-.dz input{display:none}
-.dz-icon{font-size:26px;margin-bottom:6px}
-.dz-label{font-size:13px;color:var(--muted);line-height:1.6}
-.dz-label strong{color:var(--accent)}
-.thumb-row{display:none;align-items:center;gap:14px;margin-top:14px}
-.thumb-row.vis{display:flex}
-.thumb-img{width:88px;height:64px;border-radius:5px;object-fit:cover;border:1px solid var(--border-hi)}
-.thumb-info{font-size:12px;color:var(--muted);line-height:1.9}
-.thumb-info strong{color:var(--text);display:block;font-size:13px}
-.warn-badge{display:none;margin-top:8px;padding:6px 12px;background:rgba(240,160,74,.08);border:1px solid rgba(240,160,74,.25);border-radius:6px;font-size:12px;color:var(--warn);font-family:var(--mono)}
-.warn-badge.vis{display:block}
+.dz input{display:none}.dz-icon{font-size:26px;margin-bottom:6px}
+.dz-lbl{font-size:13px;color:var(--muted);line-height:1.6}
+.dz-lbl strong{color:var(--accent)}
+
+/* thumbnails grid */
+.thumbs{display:none;flex-wrap:wrap;gap:8px;margin-top:14px}
+.thumbs.vis{display:flex}
+.thumb{position:relative;width:72px;height:52px;border-radius:5px;overflow:hidden;border:1px solid var(--hi)}
+.thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.thumb-rm{position:absolute;top:2px;right:2px;background:rgba(255,92,122,.85);border:none;color:#fff;width:14px;height:14px;border-radius:50%;font-size:9px;cursor:pointer;display:grid;place-items:center}
+.thumb-add{width:72px;height:52px;border-radius:5px;border:1.5px dashed var(--hi);display:grid;place-items:center;font-size:20px;color:var(--muted);cursor:pointer;flex-shrink:0;background:rgba(100,180,255,.02)}
+.thumb-add:hover{border-color:var(--accent);color:var(--accent)}
+
+/* crop warning */
+.crop-warn{display:none;margin-top:10px;padding:8px 12px;background:rgba(240,160,74,.07);border:1px solid rgba(240,160,74,.25);border-radius:6px;font-size:12px;color:var(--warn);font-family:var(--mono)}
+.crop-warn.vis{display:block}
+
+/* fill modal */
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:100;align-items:center;justify-content:center}
+.modal-bg.vis{display:flex}
+.modal{background:var(--surface);border:1px solid var(--hi);border-radius:var(--r);padding:28px 32px;max-width:420px;width:90%;text-align:center}
+.modal h3{font-family:var(--mono);font-size:14px;color:#e0eeff;margin-bottom:8px}
+.modal p{font-size:13px;color:var(--muted);line-height:1.7;margin-bottom:20px}
+.modal-btns{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+.mbtn{padding:10px 20px;border-radius:7px;font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.08em;cursor:pointer;text-transform:uppercase;transition:all .2s}
+.mbtn-rep{background:linear-gradient(135deg,var(--accent2),var(--accent));border:none;color:#060810}
+.mbtn-rep:hover{opacity:.85}
+.mbtn-ex{background:transparent;border:1.5px solid var(--hi);color:var(--text)}
+.mbtn-ex:hover{border-color:var(--accent);color:var(--accent)}
+.modal-note{font-size:11px;color:var(--muted);margin-top:12px;font-family:var(--mono)}
 
 /* mode tabs */
-.mode-tabs{display:flex;gap:8px;margin-bottom:16px}
+.tabs{display:flex;gap:8px;margin-bottom:16px}
 .tab{flex:1;padding:9px;border:1px solid var(--border);border-radius:7px;background:transparent;color:var(--muted);font-family:var(--mono);font-size:11px;letter-spacing:.06em;cursor:pointer;transition:all .2s;text-transform:uppercase}
 .tab.active{border-color:var(--accent);color:var(--accent);background:rgba(74,240,200,.05)}
 
 /* params */
-.params-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px}
+.pg{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px}
 .pf label{display:block;font-family:var(--mono);font-size:10px;letter-spacing:.1em;color:var(--muted);text-transform:uppercase;margin-bottom:5px}
 .pf input,.pf select{width:100%;background:rgba(100,180,255,.03);border:1px solid var(--border);border-radius:6px;padding:7px 10px;color:var(--text);font-family:var(--mono);font-size:13px;outline:none;transition:border-color .2s}
 .pf input:focus,.pf select:focus{border-color:var(--accent)}
-.pf .hint{font-size:10.5px;color:var(--muted);margin-top:3px;line-height:1.5}
+.pf .hint{font-size:10.5px;color:var(--muted);margin-top:3px}
 
-/* layout badge */
-.layout-badge{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-top:14px;padding:10px 14px;background:rgba(74,240,200,.04);border:1px solid rgba(74,240,200,.14);border-radius:7px;font-family:var(--mono);font-size:11px}
-.badge-count{font-size:20px;font-weight:700;color:var(--accent)}
-.badge-sub{color:var(--muted);line-height:1.8}
+/* badge */
+.badge{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-top:14px;padding:10px 14px;background:rgba(74,240,200,.04);border:1px solid rgba(74,240,200,.14);border-radius:7px;font-family:var(--mono);font-size:11px}
+.bc{font-size:20px;font-weight:700;color:var(--accent)}
+.bs{color:var(--muted);line-height:1.9}
 
-/* monocle preview pill */
-.monocle-pill{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border:1px solid var(--border-hi);border-radius:20px;font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:10px}
-.monocle-pill span{color:var(--accent)}
-
-/* btn */
+/* btn run */
 .btn-run{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;margin-top:10px;padding:13px;background:linear-gradient(135deg,var(--accent2),var(--accent));border:none;border-radius:8px;color:#060810;font-family:var(--mono);font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;transition:opacity .2s,transform .1s}
 .btn-run:disabled{opacity:.35;cursor:not-allowed}
 .btn-run:not(:disabled):hover{opacity:.85}
 .btn-run:not(:disabled):active{transform:scale(.98)}
 
 /* progress */
-.prog-track{height:3px;background:var(--border);border-radius:3px;overflow:hidden;margin-top:14px;display:none}
-.prog-track.vis{display:block}
-.prog-bar{height:100%;background:linear-gradient(90deg,var(--accent2),var(--accent));width:0%;transition:width .4s ease}
-.status-msg{font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:8px;min-height:16px}
-.status-msg.ok{color:var(--accent)}.status-msg.err{color:var(--error)}
+.pt{height:3px;background:var(--border);border-radius:3px;overflow:hidden;margin-top:14px;display:none}
+.pt.vis{display:block}
+.pb{height:100%;background:linear-gradient(90deg,var(--accent2),var(--accent));width:0%;transition:width .4s ease}
+.sm{font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:8px;min-height:16px}
+.sm.ok{color:var(--accent)}.sm.err{color:var(--err)}
 
 /* result */
-.result-panel{display:none;flex-direction:column;align-items:center;gap:16px}
-.result-panel.vis{display:flex}
-.preview-wrap{border:1px solid var(--border-hi);border-radius:6px;overflow:hidden;box-shadow:0 0 30px rgba(74,240,200,.07)}
-.preview-wrap img{display:block;max-width:100%;height:auto;max-height:560px}
-.result-meta{font-family:var(--mono);font-size:11px;color:var(--muted);text-align:center;line-height:2}
-.result-meta strong{color:var(--accent)}
-.btn-dl{display:flex;align-items:center;gap:8px;padding:10px 24px;background:transparent;border:1.5px solid var(--accent);border-radius:8px;color:var(--accent);font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;text-decoration:none;transition:background .2s,color .2s}
+.rp{display:none;flex-direction:column;align-items:center;gap:16px}
+.rp.vis{display:flex}
+.pw{border:1px solid var(--hi);border-radius:6px;overflow:hidden;box-shadow:0 0 28px rgba(74,240,200,.07)}
+.pw img{display:block;max-width:100%;height:auto;max-height:540px}
+.rm{font-family:var(--mono);font-size:11px;color:var(--muted);text-align:center;line-height:2}
+.rm strong{color:var(--accent)}
+.dl-row{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.btn-dl{display:flex;align-items:center;gap:7px;padding:10px 22px;background:transparent;border:1.5px solid var(--accent);border-radius:8px;color:var(--accent);font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;text-decoration:none;transition:background .2s,color .2s}
 .btn-dl:hover{background:var(--accent);color:#060810}
-.print-tip{background:rgba(123,92,250,.06);border:1px solid rgba(123,92,250,.18);border-radius:8px;padding:12px 16px;font-size:12px;line-height:1.85;color:var(--muted);max-width:480px;text-align:center}
-.print-tip strong{color:#e0eeff}
+.btn-dl.sec{border-color:var(--accent2);color:var(--accent2)}
+.btn-dl.sec:hover{background:var(--accent2);color:#060810}
+.ptip{background:rgba(123,92,250,.06);border:1px solid rgba(123,92,250,.18);border-radius:8px;padding:12px 16px;font-size:12px;line-height:1.85;color:var(--muted);max-width:480px;text-align:center}
+.ptip strong{color:#e0eeff}
 
 footer{margin-top:48px;padding:20px;font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:.08em;text-align:center}
 </style>
 </head>
 <body>
 
+<!-- MODAL: repeat vs exact -->
+<div class="modal-bg" id="modal-bg">
+  <div class="modal">
+    <h3>Como preencher a folha A4?</h3>
+    <p id="modal-msg">Você enviou <strong id="m-n">?</strong> fotos para <strong id="m-total">70</strong> posições.</p>
+    <div class="modal-btns">
+      <button class="mbtn mbtn-rep" onclick="confirmFill('repeat')">🔁 Repetir até 70</button>
+      <button class="mbtn mbtn-ex"  onclick="confirmFill('exact')">📐 Só as <span id="m-n2">?</span> fotos</button>
+    </div>
+    <p class="modal-note" id="modal-note"></p>
+  </div>
+</div>
+
 <header>
-  <p class="logo">⬡ giph5lens · monocle print spooler v2</p>
+  <p class="logo">⬡ giph5lens · monocle print spooler v3</p>
   <h1>Monóculo <span>Fotográfico</span> — Refil Printer</h1>
-  <p class="sub">Suba uma foto · a API converte para as medidas exatas do monóculo · baixe pronto para gráfica.</p>
+  <p class="sub">Suba as fotos · configure · baixe o A4 pronto para gráfica.</p>
   <div class="spec-strip">
-    <span class="spec-chip">26 × 19 mm</span>
-    <span class="spec-chip">307 × 224 px</span>
-    <span class="spec-chip">300 DPI</span>
-    <span class="spec-chip">bleed 0.5 mm</span>
-    <span class="spec-chip">border-radius 1 mm</span>
-    <span class="spec-chip">91 por folha A4</span>
-    <span class="spec-chip">cover crop centralizado</span>
+    <span class="chip">31 × 17 mm</span>
+    <span class="chip">display 27 × 14 mm</span>
+    <span class="chip">366 × 201 px</span>
+    <span class="chip">300 DPI</span>
+    <span class="chip">borda Polaroid P&B</span>
+    <span class="chip">70 por folha A4</span>
+    <span class="chip">tracejado de corte</span>
   </div>
 </header>
 
 <main class="pipeline">
 
-  <!-- STEP 1 -->
+  <!-- STEP 1: Upload -->
   <section class="step active" id="step-upload">
-    <div class="step-head"><div class="step-num" id="num-1">1</div><span class="step-title">Foto</span></div>
+    <div class="sh">
+      <div class="sh-left">
+        <div class="sn" id="n1">1</div>
+        <span class="st">Fotos</span>
+      </div>
+      <button class="btn-reset" id="btn-reset" onclick="resetAll()">↺ Limpar</button>
+    </div>
     <div class="dz" id="dz">
       <input type="file" id="fi" accept="image/*" multiple/>
       <div class="dz-icon">📷</div>
-      <p class="dz-label"><strong>Clique ou arraste</strong> a foto aqui.<br/>
-      JPG · PNG · qualquer proporção. Você pode selecionar múltiplas imagens. Cover crop centralizado automático.</p>
+      <p class="dz-lbl"><strong>Clique ou arraste</strong> — 1 a 70 fotos.<br/>
+      JPG · PNG · WebP · qualquer proporção. Cover crop automático.</p>
     </div>
-    <div class="thumb-row" id="thumb-row">
-      <img class="thumb-img" id="thumb-img" src="" alt="preview"/>
-      <div class="thumb-info">
-        <strong id="t-name"></strong>
-        <span id="t-size"></span><br/>
-        <span id="t-dims"></span>
-        <div id="t-count" style="font-size:12px;color:var(--muted)"></div>
-      </div>
+    <div class="thumbs" id="thumbs">
+      <div class="thumb-add" id="thumb-add" title="Adicionar mais fotos">＋</div>
     </div>
-    <div class="warn-badge" id="warn-badge">⚠️ crop_loss_risk = high — foto com proporção muito diferente de 26:19. Confira o preview antes de imprimir.</div>
-    <div class="monocle-pill">Monóculo: <span>26 × 19 mm</span> · canvas: <span>307 × 224 px</span> · bleed: <span>319 × 236 px</span></div>
+    <div class="crop-warn" id="crop-warn">⚠️ crop_loss_risk = high — uma ou mais fotos têm proporção muito diferente de 27:14. Confira o preview antes de imprimir.</div>
   </section>
 
-  <!-- STEP 2 -->
+  <!-- STEP 2: Params -->
   <section class="step" id="step-params">
-    <div class="step-head"><div class="step-num" id="num-2">2</div><span class="step-title">Parâmetros</span></div>
-
-    <div class="mode-tabs">
-      <button class="tab active" id="tab-a4" onclick="setMode('a4')">📄 Folha A4 completa</button>
-      <button class="tab" id="tab-single" onclick="setMode('single')">🔍 Monóculo único</button>
+    <div class="sh"><div class="sh-left"><div class="sn" id="n2">2</div><span class="st">Parâmetros</span></div></div>
+    <div class="tabs">
+      <button class="tab active" id="tab-a4"     onclick="setMode('a4')">📄 Folha A4 (70 cópias)</button>
+      <button class="tab"        id="tab-single" onclick="setMode('single')">🔍 Monóculo único</button>
     </div>
-
-    <div class="params-grid">
+    <div class="pg">
       <div class="pf">
         <label>DPI</label>
         <input type="number" id="p-dpi" value="300" min="150" max="600"/>
         <p class="hint">300 = padrão gráfica</p>
-      </div>
-      <div class="pf">
-        <label>Bleed</label>
-        <select id="p-bleed">
-          <option value="true" selected>Sim (0.5 mm)</option>
-          <option value="false">Não</option>
-        </select>
-        <p class="hint">evita borda branca no corte</p>
       </div>
       <div class="pf">
         <label>Cantos</label>
@@ -166,15 +190,22 @@ footer{margin-top:48px;padding:20px;font-family:var(--mono);font-size:10px;color
           <option value="true" selected>Arredondados (1 mm)</option>
           <option value="false">Retos</option>
         </select>
-        <p class="hint">border-radius do monóculo</p>
       </div>
       <div class="pf">
-        <label>Modo impressão</label>
+        <label>Borda Polaroid</label>
+        <select id="p-polaroid">
+          <option value="true" selected>Sim (P&B)</option>
+          <option value="false">Não</option>
+        </select>
+        <p class="hint">moldura branca + linha preta</p>
+      </div>
+      <div class="pf">
+        <label>Impressão</label>
         <select id="p-enhance">
           <option value="false" selected>Papel fotográfico</option>
-          <option value="true">Acetato / Transparência</option>
+          <option value="true">Acetato</option>
         </select>
-        <p class="hint">acetato: +15% contraste +20% sat</p>
+        <p class="hint">acetato: +contraste +sat</p>
       </div>
       <div class="pf">
         <label>Formato</label>
@@ -182,252 +213,292 @@ footer{margin-top:48px;padding:20px;font-family:var(--mono);font-size:10px;color
           <option value="PNG" selected>PNG (lossless)</option>
           <option value="TIFF">TIFF (máx. fidelidade)</option>
         </select>
-        <p class="hint">TIFF para gráfica profissional</p>
       </div>
-      <div class="pf" id="gap-field">
+      <div class="pf" id="f-gap">
         <label>Gap (mm)</label>
         <input type="number" id="p-gap" value="2" min="1" max="8" step="0.5"/>
         <p class="hint">espaço entre monóculos</p>
       </div>
-      <div class="pf">
-        <label>Repetir para preencher A4</label>
-        <select id="p-repeat">
-          <option value="repeat" selected>Sim — repetir em loop</option>
-          <option value="no-repeat">Não — só as selecionadas</option>
-        </select>
-        <p class="hint">Se não repetir, as posições vazias ficam em branco.</p>
-      </div>
     </div>
-
-    <div class="layout-badge" id="layout-badge">
-      <span class="badge-count" id="b-count">…</span>
-      <span class="badge-sub" id="b-sub">calculando…</span>
+    <div class="badge" id="badge">
+      <span class="bc" id="bc">70</span>
+      <span class="bs" id="bs">5 colunas × 14 linhas · 31×17 mm · 300 DPI · A4</span>
     </div>
   </section>
 
-  <!-- STEP 3 -->
+  <!-- STEP 3: Gerar -->
   <section class="step" id="step-process">
-    <div class="step-head"><div class="step-num" id="num-3">3</div><span class="step-title">Processar</span></div>
-    <div style="display:flex;gap:8px">
-      <button class="btn-run" id="btn-run" style="flex:1" disabled>▶ &nbsp;Gerar Arquivo de Impressão</button>
-      <button id="btn-reset" style="padding:11px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer">⟲ Limpar</button>
-    </div>
-    <div class="prog-track" id="prog-track"><div class="prog-bar" id="prog-bar"></div></div>
-    <p class="status-msg" id="status-msg"></p>
+    <div class="sh"><div class="sh-left"><div class="sn" id="n3">3</div><span class="st">Gerar</span></div></div>
+    <button class="btn-run" id="btn-run" disabled>▶ &nbsp;Gerar Arquivo de Impressão</button>
+    <div class="pt" id="pt"><div class="pb" id="pb"></div></div>
+    <p class="sm" id="sm"></p>
   </section>
 
-  <!-- STEP 4 -->
+  <!-- STEP 4: Download -->
   <section class="step" id="step-result">
-    <div class="step-head"><div class="step-num" id="num-4">4</div><span class="step-title">Download</span></div>
-    <div class="result-panel" id="result-panel">
-      <div class="preview-wrap"><img id="preview-img" src="" alt="Preview"/></div>
-      <p class="result-meta" id="result-meta"></p>
-      <div style="display:flex;gap:10px;align-items:center">
-        <a class="btn-dl" id="btn-dl" href="#" download>↓ &nbsp;Baixar arquivo de impressão</a>
-        <button id="btn-print" class="btn-dl" style="background:transparent;border-color:var(--accent);color:var(--accent)">🖨️ &nbsp;Imprimir/PDF</button>
+    <div class="sh"><div class="sh-left"><div class="sn" id="n4">4</div><span class="st">Download</span></div></div>
+    <div class="rp" id="rp">
+      <div class="pw"><img id="prev-img" src="" alt="preview"/></div>
+      <p class="rm" id="rm"></p>
+      <div class="dl-row">
+        <a class="btn-dl" id="btn-dl" href="#" download>↓ &nbsp;Baixar para Impressão</a>
       </div>
-      <div class="print-tip">
+      <div class="ptip">
         <strong>Como imprimir:</strong><br/>
-        Envie para a gráfica ou impressora fotográfica.<br/>
-        Selecione <strong>tamanho real · 100% · sem ajuste automático</strong>.<br/>
-        Papel fotográfico glossy 200g+ ou acetato (modo transparência).
+        Envie o arquivo para gráfica ou impressora fotográfica.<br/>
+        <strong>A4 · tamanho real · 100% · sem escalonamento automático</strong>.<br/>
+        Corte nas linhas tracejadas. Papel fotográfico glossy 200g+.
       </div>
     </div>
   </section>
 
 </main>
 
-<footer>giph5lens v2 · 26×19 mm · 307×224 px · 91 por A4 · feito com ♥ para Dublin</footer>
+<footer>giph5lens v3 · 31×17 mm · 70 por A4 · display 27×14 mm · feito com ♥ para Dublin</footer>
 
 <script>
-let files = [], jobId = null, pollTimer = null, mode = 'a4';
+let files = [], mode = 'a4', jobId = null, timer = null, pendingFill = null;
 
-const dz         = document.getElementById('dz');
-const fi         = document.getElementById('fi');
-const thumbRow   = document.getElementById('thumb-row');
-const thumbImg   = document.getElementById('thumb-img');
-const warnBadge  = document.getElementById('warn-badge');
-const btnRun     = document.getElementById('btn-run');
-const progTrack  = document.getElementById('prog-track');
-const progBar    = document.getElementById('prog-bar');
-const statusMsg  = document.getElementById('status-msg');
-const resultPanel= document.getElementById('result-panel');
-const previewImg = document.getElementById('preview-img');
-const btnDl      = document.getElementById('btn-dl');
-const resultMeta = document.getElementById('result-meta');
-const bCount     = document.getElementById('b-count');
-const bSub       = document.getElementById('b-sub');
-const btnReset   = document.getElementById('btn-reset');
-const btnPrint   = document.getElementById('btn-print');
+const dz       = document.getElementById('dz');
+const fi       = document.getElementById('fi');
+const thumbsEl = document.getElementById('thumbs');
+const thumbAdd = document.getElementById('thumb-add');
+const cropWarn = document.getElementById('crop-warn');
+const btnRun   = document.getElementById('btn-run');
+const pt       = document.getElementById('pt');
+const pb       = document.getElementById('pb');
+const sm       = document.getElementById('sm');
+const rp       = document.getElementById('rp');
+const prevImg  = document.getElementById('prev-img');
+const btnDl    = document.getElementById('btn-dl');
+const rm       = document.getElementById('rm');
+const bc       = document.getElementById('bc');
+const bs       = document.getElementById('bs');
+const btnReset = document.getElementById('btn-reset');
+const modalBg  = document.getElementById('modal-bg');
+const mN       = document.getElementById('m-n');
+const mN2      = document.getElementById('m-n2');
+const mTotal   = document.getElementById('m-total');
+const mNote    = document.getElementById('modal-note');
 
+// ── Drop & file select ────────────────────────────────────────────────────────
 dz.addEventListener('click', () => fi.click());
 dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('over'); });
 dz.addEventListener('dragleave', () => dz.classList.remove('over'));
-dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('over'); setFiles(e.dataTransfer.files); });
-fi.addEventListener('change', () => setFiles(fi.files));
+dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('over'); addFiles([...e.dataTransfer.files]); });
+fi.addEventListener('change', () => { addFiles([...fi.files]); fi.value = ''; });
+thumbAdd.addEventListener('click', () => fi.click());
 
-function setFiles(flist) {
-  const arr = Array.from(flist || []);
-  if (arr.length === 0) return;
-  files = arr.filter(f => f.type && f.type.startsWith('image/'));
-  if (files.length === 0) return;
-  const first = files[0];
-  const url = URL.createObjectURL(first);
-  thumbImg.src = url;
-  document.getElementById('t-name').textContent = first.name;
-  document.getElementById('t-size').textContent = (first.size/1024).toFixed(0) + ' KB';
-  document.getElementById('t-count').textContent = files.length > 1 ? files.length + ' imagens selecionadas' : '';
-  const imgEl = new Image();
-  imgEl.onload = () => {
-    document.getElementById('t-dims').textContent = imgEl.width + '×' + imgEl.height + ' px';
-    const srcAr = imgEl.width / imgEl.height;
-    const tgtAr = 307 / 224;
-    const diff  = Math.abs(srcAr - tgtAr) / tgtAr;
-    warnBadge.classList.toggle('vis', diff > 0.35);
-  };
-  imgEl.src = url;
-  thumbRow.classList.add('vis');
-  btnRun.disabled = false;
+function addFiles(newFiles) {
+  newFiles.forEach(f => {
+    if (files.length >= 70) return;
+    if (!f.type.startsWith('image/')) return;
+    files.push(f);
+  });
+  renderThumbs();
+  checkCropRisk();
+  syncRun();
   fetchBadge();
 }
 
+function renderThumbs() {
+  // Remove thumbs antigos (exceto o botão +)
+  [...thumbsEl.querySelectorAll('.thumb')].forEach(t => t.remove());
+  files.forEach((f, i) => {
+    const url = URL.createObjectURL(f);
+    const div = document.createElement('div');
+    div.className = 'thumb';
+    div.innerHTML = `<img src="${url}" alt="frame ${i+1}"/>
+      <button class="thumb-rm" data-i="${i}">×</button>`;
+    thumbsEl.insertBefore(div, thumbAdd);
+  });
+  thumbsEl.classList.toggle('vis', files.length > 0);
+  btnReset.classList.toggle('vis', files.length > 0);
+  thumbAdd.style.display = files.length >= 70 ? 'none' : 'grid';
+}
+
+thumbsEl.addEventListener('click', e => {
+  const btn = e.target.closest('.thumb-rm');
+  if (!btn) return;
+  files.splice(+btn.dataset.i, 1);
+  renderThumbs(); checkCropRisk(); syncRun(); fetchBadge();
+});
+
+function checkCropRisk() {
+  let highRisk = false;
+  let checked  = 0;
+  if (!files.length) { cropWarn.classList.remove('vis'); return; }
+  files.forEach(f => {
+    const img = new Image();
+    img.onload = () => {
+      const ar  = img.width / img.height;
+      const tar = 319 / 165;  // display 27×14mm
+      if (Math.abs(ar - tar) / tar > 0.35) highRisk = true;
+      checked++;
+      if (checked === files.length) cropWarn.classList.toggle('vis', highRisk);
+    };
+    img.src = URL.createObjectURL(f);
+  });
+}
+
+function syncRun() {
+  btnRun.disabled = files.length === 0;
+}
+
+// ── Badge ─────────────────────────────────────────────────────────────────────
+async function fetchBadge() {
+  if (mode === 'single') {
+    bc.textContent = '1';
+    bs.textContent = 'monóculo único · 31×17 mm · display 27×14 mm';
+    return;
+  }
+  try {
+    const p = new URLSearchParams({ dpi: document.getElementById('p-dpi').value, gap_mm: document.getElementById('p-gap').value, margin_mm: 8 });
+    const d = await fetch('/api/layout-calc?' + p).then(r => r.json());
+    const n = files.length;
+    bc.textContent = d.total_per_a4 + ' monóculos';
+    bs.textContent = `${d.cols}×${d.rows} · ${n > 0 ? n + ' foto' + (n > 1 ? 's' : '') + ' · ' : ''}31×17 mm · ${d.dpi} DPI · A4`;
+  } catch { bs.textContent = 'erro ao calcular'; }
+}
+
+['p-dpi','p-gap'].forEach(id => document.getElementById(id)?.addEventListener('input', fetchBadge));
+fetchBadge();
+
+// ── Modo ──────────────────────────────────────────────────────────────────────
 function setMode(m) {
   mode = m;
   document.getElementById('tab-a4').classList.toggle('active', m === 'a4');
   document.getElementById('tab-single').classList.toggle('active', m === 'single');
-  document.getElementById('gap-field').style.opacity = m === 'a4' ? '1' : '0.35';
+  document.getElementById('f-gap').style.opacity = m === 'a4' ? '1' : '.4';
   fetchBadge();
 }
 
-async function fetchBadge() {
-  if (mode === 'single') {
-    bCount.textContent = '1';
-    bSub.textContent   = 'monóculo único · 26×19 mm · 307×224 px (+ bleed: 319×236 px)';
-    return;
+// ── Processar ─────────────────────────────────────────────────────────────────
+btnRun.addEventListener('click', () => {
+  if (!files.length) return;
+  const total = 70;
+  // Se modo A4 e menos fotos que total → perguntar
+  if (mode === 'a4' && files.length < total) {
+    mN.textContent = files.length;
+    mN2.textContent = files.length;
+    mTotal.textContent = total;
+    const smaller = (files.length * 366 * 201 * 3 / 1024 / 1024).toFixed(1);
+    const bigger  = (total * 366 * 201 * 3 / 1024 / 1024).toFixed(1);
+    mNote.textContent = `Só as ${files.length}: arquivo menor (~${smaller}MB) · Repetir: mais cópias (~${bigger}MB)`;
+    modalBg.classList.add('vis');
+  } else {
+    startJob('repeat');
   }
-  try {
-    const params = new URLSearchParams({
-      dpi: document.getElementById('p-dpi').value,
-      gap_mm: document.getElementById('p-gap').value,
-      margin_mm: 8,
-    });
-    const r = await fetch('/api/layout-calc?' + params);
-    const d = await r.json();
-    bCount.textContent = d.total_per_a4 + ' monóculos';
-    bSub.textContent   = `${d.cols} colunas × ${d.rows} linhas · ${d.dpi} DPI · A4 210×297 mm`;
-  } catch { bSub.textContent = 'erro ao calcular'; }
+});
+
+function confirmFill(fill) {
+  modalBg.classList.remove('vis');
+  startJob(fill);
 }
 
-['p-dpi','p-gap'].forEach(id => {
-  const el = document.getElementById(id);
-  if (el) el.addEventListener('input', fetchBadge);
-});
-fetchBadge();
-
-if (btnReset) btnReset.addEventListener('click', resetForm);
-if (btnPrint) btnPrint.addEventListener('click', printAsPDF);
-
-btnRun.addEventListener('click', async () => {
-  if (!files || files.length === 0) return;
+async function startJob(fill) {
   btnRun.disabled = true;
-  progTrack.classList.add('vis');
-  progBar.style.width = '8%';
-  setStatus('Enviando…', '');
+  pt.classList.add('vis');
+  pb.style.width = '8%';
+  setSm('Enviando…', '');
 
   const fd = new FormData();
-  for (const f of files) fd.append('file', f);
-  fd.append('mode',   mode);
-  fd.append('dpi',    document.getElementById('p-dpi').value);
-  fd.append('with_bleed',            document.getElementById('p-bleed').value);
-  fd.append('round_corners',         document.getElementById('p-corners').value);
-  fd.append('enhance_transparency',  document.getElementById('p-enhance').value);
-  fd.append('export_format',         document.getElementById('p-format').value);
-  fd.append('gap_mm',  document.getElementById('p-gap').value);
-  fd.append('margin_mm', '8');
-  fd.append('repeat', document.getElementById('p-repeat').value);
+  files.forEach(f => fd.append('files', f));
+  fd.append('mode',               mode);
+  fd.append('dpi',                document.getElementById('p-dpi').value);
+  fd.append('round_corners',      document.getElementById('p-corners').value);
+  fd.append('polaroid_border',    document.getElementById('p-polaroid').value);
+  fd.append('enhance_transparency', document.getElementById('p-enhance').value);
+  fd.append('export_format',      document.getElementById('p-format').value);
+  fd.append('fill_mode',          fill);
+  fd.append('gap_mm',             document.getElementById('p-gap').value);
+  fd.append('margin_mm',          '8');
+  fd.append('draw_cut_lines',     'true');
 
   try {
     const r = await fetch('/api/process', { method: 'POST', body: fd });
     const d = await r.json();
     if (!r.ok) throw new Error(d.detail || 'Erro');
     jobId = d.job_id;
-    progBar.style.width = '28%';
-    setStatus('Processando imagem…', '');
-    pollTimer = setInterval(poll, 900);
+    pb.style.width = '28%';
+    setSm('Processando…', '');
+    timer = setInterval(poll, 900);
   } catch(e) {
-    setStatus('Erro: ' + e.message, 'err');
-    progTrack.classList.remove('vis');
+    setSm('Erro: ' + e.message, 'err');
+    pt.classList.remove('vis');
     btnRun.disabled = false;
   }
-});
+}
 
 async function poll() {
   try {
-    const r = await fetch('/api/status/' + jobId);
-    const d = await r.json();
-    if (d.status === 'processing') { progBar.style.width = '65%'; setStatus(d.message, ''); }
+    const d = await fetch('/api/status/' + jobId).then(r => r.json());
+    if (d.status === 'processing') { pb.style.width = '65%'; setSm(d.message, ''); }
     if (d.status === 'done') {
-      clearInterval(pollTimer);
-      progBar.style.width = '100%';
-      setStatus(d.message, 'ok');
+      clearInterval(timer);
+      pb.style.width = '100%';
+      setSm(d.message, 'ok');
       markDone(3); markDone(4);
       showResult(d.info);
     }
     if (d.status === 'error') {
-      clearInterval(pollTimer);
-      setStatus(d.message, 'err');
+      clearInterval(timer);
+      setSm(d.message, 'err');
       btnRun.disabled = false;
-      progTrack.classList.remove('vis');
+      pt.classList.remove('vis');
     }
   } catch {}
 }
 
 function showResult(info) {
-  resultPanel.classList.add('vis');
-  previewImg.src = '/api/preview/' + jobId + '?t=' + Date.now();
-  btnDl.href     = '/api/download/' + jobId;
+  rp.classList.add('vis');
+  prevImg.src = '/api/preview/' + jobId + '?t=' + Date.now();
+  btnDl.href  = '/api/download/' + jobId;
   if (info) {
     const risk = info.crop_loss_risk || 'low';
-    resultMeta.innerHTML =
-      `<strong>${info.output_px}</strong> · ${info.dpi} DPI · ${info.format}` +
-      (info.total_per_a4 ? ` · <strong>${info.total_per_a4} cópias A4</strong>` : '') +
-      (info.selected ? ` · ${info.selected} imagens selecionadas` : '') +
-      (info.repeated ? ` · imagens repetidas para preencher` : '') +
+    rm.innerHTML =
+      (info.cells_used ? `<strong>${info.cells_used}</strong> monóculos · ` : '') +
+      (info.photos_uploaded ? `${info.photos_uploaded} foto(s) · ` : '') +
+      `${info.dpi || 300} DPI · ${info.format || 'PNG'}` +
       (risk === 'high' ? ` · <span style="color:var(--warn)">⚠ crop risk alto</span>` : '');
   }
   document.getElementById('step-result').scrollIntoView({ behavior: 'smooth' });
 }
 
-// Reset button
-function resetForm() {
-  files = [];
-  fi.value = '';
-  thumbRow.classList.remove('vis');
-  warnBadge.classList.remove('vis');
+// ── Reset ────────────────────────────────────────────────────────────────────
+function resetAll() {
+  files = []; jobId = null;
+  clearInterval(timer);
+  renderThumbs();
+  cropWarn.classList.remove('vis');
   btnRun.disabled = true;
-  resultPanel.classList.remove('vis');
-  progTrack.classList.remove('vis');
-  setStatus('', '');
+  pt.classList.remove('vis');
+  pb.style.width = '0%';
+  setSm('', '');
+  rp.classList.remove('vis');
+  prevImg.src = '';
+  btnDl.href = '#';
+  // reset steps
+  ['upload','params','process','result'].forEach(id => {
+    const s = document.getElementById('step-' + id);
+    if (s) { s.classList.remove('done','err'); }
+  });
+  document.getElementById('step-upload').classList.add('active');
+  ['n1','n2','n3','n4'].forEach((id,i) => {
+    const el = document.getElementById(id);
+    if (el) { el.innerHTML = ''; el.textContent = i+1; }
+  });
+  fetchBadge();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-// Print as PDF (abre uma janela com preview e chama print)
-function printAsPDF() {
-  if (!jobId) return;
-  const w = window.open('/api/preview-print/' + jobId, '_blank');
-  if (!w) alert('Permita pop-ups para abrir a janela de impressão.');
-}
-
-function setStatus(msg, cls) {
-  statusMsg.textContent = msg;
-  statusMsg.className   = 'status-msg ' + cls;
-}
-
+function setSm(msg, cls) { sm.textContent = msg; sm.className = 'sm ' + cls; }
 function markDone(n) {
   const ids = ['','upload','params','process','result'];
-  const step = document.getElementById('step-' + ids[n]);
-  const num  = document.getElementById('num-' + n);
-  if (step) { step.classList.remove('active'); step.classList.add('done'); }
-  if (num)  { num.innerHTML = ''; }
+  const s = document.getElementById('step-' + ids[n]);
+  const el = document.getElementById('n' + n);
+  if (s) { s.classList.remove('active'); s.classList.add('done'); }
+  if (el) { el.innerHTML = ''; }
 }
 </script>
 </body>

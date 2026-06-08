@@ -1,450 +1,302 @@
 """
-processing/monocle.py
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-giph5lens — Monocle Image Processor  (v2 · física validada)
-
-Especificação física do monóculo retangular pequeno:
-  Área útil interna : 26.0 × 19.0 mm
-  Safe margin       : ± 0.5 mm
-  Área segura       : 25.5 × 18.5 mm  (encaixe garantido)
-  Área máxima       : 26.5 × 19.5 mm  (limite físico)
-  Safe crop zone    : 24.0 × 17.0 mm  (conteúdo crítico)
-  Border radius     : 1.0 mm
-  Bleed             : 0.5 mm
-  Target DPI        : 300
-  Canvas px         : 307 × 224 px    (sem bleed)
-  Canvas + bleed    : 319 × 236 px
-
-Grid A4 (gap 2 mm, margem 8 mm):
-  cols = 7 · rows = 13 · total = 91 monóculos / folha
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+processing/monocle.py — giph5lens v3
+Medidas reais (paquímetro):
+  Frame externo : 31.0 × 17.0 mm  →  366 × 201 px @ 300 DPI
+  Display/janela: 27.0 × 14.0 mm  →  319 × 165 px @ 300 DPI
+  Borda lateral : 2.0 mm cada lado →  24 px
+  Borda vertical: 1.5 mm cada lado →  18 px
+  Bleed         : 0.3 mm (rebaixo apertado)
+  Grid A4       : 5 × 14 = 70 monóculos
 """
-
 from __future__ import annotations
-
 import math
 from dataclasses import dataclass, field
-from pathlib import Path
+from typing import List
+from PIL import Image, ImageDraw, ImageEnhance
 
-import numpy as np
-from PIL import (
-    Image, ImageDraw, ImageEnhance, ImageFilter, ImageOps
-)
+MM_PER_INCH = 25.4
 
+# ── Constantes físicas reais ──────────────────────────────────────────────────
+OUTER_W_MM    = 31.0   # frame externo largura
+OUTER_H_MM    = 17.0   # frame externo altura
+DISPLAY_W_MM  = 27.0   # janela óptica largura  → 319 px
+DISPLAY_H_MM  = 14.0   # janela óptica altura   → 165 px
+BORDER_W_MM   = (OUTER_W_MM - DISPLAY_W_MM) / 2   # 2.0 mm cada lado
+BORDER_H_MM   = (OUTER_H_MM - DISPLAY_H_MM) / 2   # 1.5 mm cada lado
+BLEED_MM      = 0.3
+RADIUS_MM     = 1.0
+A4_W_MM       = 210.0
+A4_H_MM       = 297.0
 
-# ── Constantes físicas (imutáveis — medidas reais do monóculo) ────────────────
-
-MM_PER_INCH: float = 25.4
-
-WIDTH_MM:        float = 26.0
-HEIGHT_MM:       float = 19.0
-SAFE_WIDTH_MM:   float = 25.5
-SAFE_HEIGHT_MM:  float = 18.5
-MAX_WIDTH_MM:    float = 26.5
-MAX_HEIGHT_MM:   float = 19.5
-BLEED_MM:        float = 0.5
-BORDER_RADIUS_MM: float = 1.0
-SAFE_CROP_W_MM:  float = 24.0
-SAFE_CROP_H_MM:  float = 17.0
-
-A4_W_MM:  float = 210.0
-A4_H_MM:  float = 297.0
-
-
-def mm2px(mm: float, dpi: int) -> int:
+def mm2px(mm: float, dpi: int = 300) -> int:
     return round((mm / MM_PER_INCH) * dpi)
 
 
-# ── Config ────────────────────────────────────────────────────────────────────
-
 @dataclass
 class MonocleConfig:
-    dpi: int        = 300
-    with_bleed: bool = True      # extrapola 0.5 mm para evitar borda branca
-    round_corners: bool = True   # aplica border-radius de 1 mm
-    enhance_transparency: bool = False  # contrast+15% sat+20% sharp+10% p/ acetato
-    export_format: str = "PNG"   # "PNG" ou "TIFF"
-    gap_mm: float   = 2.0        # espaçamento entre monóculos no grid A4
-    margin_mm: float = 8.0       # margem externa da folha A4
+    dpi: int   = 300
+    round_corners: bool = True
+    enhance_transparency: bool = False
+    export_format: str = "PNG"      # "PNG" ou "TIFF"
+    fill_mode: str = "repeat"       # "repeat" | "exact"
+    gap_mm: float  = 2.0
+    margin_mm: float = 8.0
+    draw_cut_lines: bool = True     # tracejado de corte entre monóculos
+    polaroid_border: bool = True    # borda branca + linha preta estilo Polaroid
 
     # calculados
-    canvas_w_px: int = field(init=False)
-    canvas_h_px: int = field(init=False)
-    bleed_w_px: int  = field(init=False)
-    bleed_h_px: int  = field(init=False)
-    radius_px: int   = field(init=False)
-    safe_w_px: int   = field(init=False)
-    safe_h_px: int   = field(init=False)
-    # grid A4
+    outer_w_px:   int = field(init=False)
+    outer_h_px:   int = field(init=False)
+    display_w_px: int = field(init=False)
+    display_h_px: int = field(init=False)
+    border_w_px:  int = field(init=False)
+    border_h_px:  int = field(init=False)
+    radius_px:    int = field(init=False)
     cols: int = field(init=False)
     rows: int = field(init=False)
     total: int = field(init=False)
 
     def __post_init__(self):
         d = self.dpi
-        self.canvas_w_px = mm2px(WIDTH_MM,  d)          # 307 px
-        self.canvas_h_px = mm2px(HEIGHT_MM, d)          # 224 px
-        self.bleed_w_px  = mm2px(WIDTH_MM  + 2*BLEED_MM, d)  # 319 px
-        self.bleed_h_px  = mm2px(HEIGHT_MM + 2*BLEED_MM, d)  # 236 px
-        self.radius_px   = mm2px(BORDER_RADIUS_MM, d)   # 12 px
-        self.safe_w_px   = mm2px(SAFE_CROP_W_MM, d)     # 283 px
-        self.safe_h_px   = mm2px(SAFE_CROP_H_MM, d)     # 201 px
-
+        self.outer_w_px   = mm2px(OUTER_W_MM,   d)   # 366
+        self.outer_h_px   = mm2px(OUTER_H_MM,   d)   # 201
+        self.display_w_px = mm2px(DISPLAY_W_MM, d)   # 319
+        self.display_h_px = mm2px(DISPLAY_H_MM, d)   # 165
+        self.border_w_px  = mm2px(BORDER_W_MM,  d)   # 24
+        self.border_h_px  = mm2px(BORDER_H_MM,  d)   # 18
+        self.radius_px    = mm2px(RADIUS_MM,     d)   # 12
         usable_w = A4_W_MM - 2 * self.margin_mm
         usable_h = A4_H_MM - 2 * self.margin_mm
-        self.cols  = int((usable_w + self.gap_mm) / (WIDTH_MM  + self.gap_mm))
-        self.rows  = int((usable_h + self.gap_mm) / (HEIGHT_MM + self.gap_mm))
-        self.total = self.cols * self.rows
-
-    @property
-    def output_w(self) -> int:
-        return self.bleed_w_px if self.with_bleed else self.canvas_w_px
-
-    @property
-    def output_h(self) -> int:
-        return self.bleed_h_px if self.with_bleed else self.canvas_h_px
+        self.cols  = int((usable_w + self.gap_mm) / (OUTER_W_MM + self.gap_mm))  # 5
+        self.rows  = int((usable_h + self.gap_mm) / (OUTER_H_MM + self.gap_mm))  # 14
+        self.total = self.cols * self.rows  # 70
 
     def summary(self) -> dict:
         return {
-            "canvas_px":    f"{self.canvas_w_px}×{self.canvas_h_px}",
-            "output_px":    f"{self.output_w}×{self.output_h}",
-            "with_bleed":   self.with_bleed,
+            "outer_px":     f"{self.outer_w_px}×{self.outer_h_px}",
+            "display_px":   f"{self.display_w_px}×{self.display_h_px}",
             "dpi":          self.dpi,
             "cols":         self.cols,
             "rows":         self.rows,
             "total_per_a4": self.total,
             "format":       self.export_format,
+            "fill_mode":    self.fill_mode,
         }
 
 
-# ── Crop inteligente ──────────────────────────────────────────────────────────
+# ── helpers de imagem ─────────────────────────────────────────────────────────
 
-def _crop_warning(src_w: int, src_h: int, target_w: int, target_h: int) -> str:
-    """
-    Retorna nível de risco de crop.
-    Compara aspect ratio de origem vs destino.
-    """
-    src_ar  = src_w / src_h
-    tgt_ar  = target_w / target_h
-    diff    = abs(src_ar - tgt_ar) / tgt_ar
+def _open_any(path: str) -> Image.Image:
+    """Abre qualquer formato → RGB."""
+    raw = Image.open(path)
+    if raw.mode in ("P", "PA"):
+        raw = raw.convert("RGBA")
+    return raw.convert("RGB")
 
-    if diff > 0.35:
-        return "high"
-    if diff > 0.15:
-        return "medium"
-    return "low"
+def _crop_risk(src_w, src_h, tgt_w, tgt_h) -> str:
+    diff = abs((src_w/src_h) - (tgt_w/tgt_h)) / (tgt_w/tgt_h)
+    return "high" if diff > 0.35 else ("medium" if diff > 0.15 else "low")
 
+def _cover_crop(img: Image.Image, tw: int, th: int) -> Image.Image:
+    sw, sh = img.size
+    scale  = max(tw / sw, th / sh)
+    scale  = min(scale, 1.5) if scale > 1.0 else scale
+    rsmp   = Image.BICUBIC if scale > 1.0 else Image.LANCZOS
+    nw, nh = math.ceil(sw * scale), math.ceil(sh * scale)
+    img    = img.resize((nw, nh), rsmp)
+    l, t   = (nw - tw) // 2, (nh - th) // 2
+    return img.crop((l, t, l + tw, t + th))
 
-def _cover_crop(img: Image.Image, target_w: int, target_h: int) -> Image.Image:
-    """
-    Cover crop centralizado preservando aspect ratio.
-    Escala para preencher o target, depois corta ao centro.
-    Nunca distorce. Nunca escala além da resolução original (bicubic apenas para down).
-    """
-    src_w, src_h = img.size
-
-    # Razão de escala para cover
-    scale = max(target_w / src_w, target_h / src_h)
-
-    # Regra 14: nunca upscale além do original com bicubic simples
-    if scale > 1.0:
-        scale = min(scale, 1.5)   # cap: até 1.5× com bicubic, avisa se maior
-        resample = Image.BICUBIC
-    else:
-        resample = Image.LANCZOS
-
-    new_w = math.ceil(src_w * scale)
-    new_h = math.ceil(src_h * scale)
-    img   = img.resize((new_w, new_h), resample)
-
-    # Crop central
-    left = (new_w - target_w) // 2
-    top  = (new_h - target_h) // 2
-    return img.crop((left, top, left + target_w, top + target_h))
-
-
-def _apply_rounded_corners(img: Image.Image, radius: int) -> Image.Image:
-    """Aplica border-radius via máscara RGBA."""
-    img = img.convert("RGBA")
-    w, h = img.size
-    mask = Image.new("L", (w, h), 0)
-    draw = ImageDraw.Draw(mask)
-    draw.rounded_rectangle([(0, 0), (w - 1, h - 1)], radius=radius, fill=255)
-    img.putalpha(mask)
+def _enhance(img: Image.Image) -> Image.Image:
+    img = ImageEnhance.Contrast(img).enhance(1.15)
+    img = ImageEnhance.Color(img).enhance(1.20)
+    img = ImageEnhance.Sharpness(img).enhance(1.10)
     return img
 
+def _rgba_safe(img: Image.Image) -> Image.Image:
+    """Garante RGB para salvar como JPEG."""
+    if img.mode in ("RGBA", "LA"):
+        bg = Image.new("RGB", img.size, (255, 255, 255))
+        bg.paste(img.convert("RGB"), mask=img.getchannel("A"))
+        return bg
+    return img.convert("RGB") if img.mode != "RGB" else img
 
-def _enhance_for_transparency(img: Image.Image) -> Image.Image:
+
+# ── Borda Polaroid ────────────────────────────────────────────────────────────
+
+def _make_tile_polaroid(photo: Image.Image, cfg: MonocleConfig) -> Image.Image:
     """
-    Reforça contraste, saturação e nitidez para impressão em acetato/transparência.
-    Compensa perda de densidade luminosa quando a luz atravessa o filme.
+    Monta o tile completo do monóculo com borda estilo Polaroid:
+    - fundo branco no frame externo (366×201 px)
+    - foto cropada centralizada na janela (319×165 px)
+    - linha preta fina (2px) ao redor da janela
+    - cantos arredondados opcionais
     """
-    img = ImageEnhance.Contrast(img).enhance(1.15)    # +15%
-    img = ImageEnhance.Color(img).enhance(1.20)        # +20% saturação
-    img = ImageEnhance.Sharpness(img).enhance(1.10)    # +10% nitidez
-    return img
+    ow, oh = cfg.outer_w_px, cfg.outer_h_px
+    dw, dh = cfg.display_w_px, cfg.display_h_px
+    bw, bh = cfg.border_w_px, cfg.border_h_px
+
+    # Canvas branco
+    frame = Image.new("RGB", (ow, oh), (255, 255, 255))
+
+    # Foto na janela interna
+    photo_cropped = _cover_crop(photo, dw, dh)
+    frame.paste(photo_cropped, (bw, bh))
+
+    # Borda preta ao redor da janela (2px, estilo Polaroid)
+    draw = ImageDraw.Draw(frame)
+    draw.rectangle(
+        [(bw - 2, bh - 2), (bw + dw + 1, bh + dh + 1)],
+        outline=(0, 0, 0), width=2
+    )
+
+    # Cantos arredondados no frame inteiro
+    if cfg.round_corners:
+        frame = frame.convert("RGBA")
+        mask = Image.new("L", (ow, oh), 0)
+        ImageDraw.Draw(mask).rounded_rectangle(
+            [(0, 0), (ow - 1, oh - 1)], radius=cfg.radius_px, fill=255
+        )
+        frame.putalpha(mask)
+
+    return frame
 
 
 # ── Processador principal ─────────────────────────────────────────────────────
 
 class MonocleProcessor:
-    """
-    Converte qualquer imagem para o formato físico do monóculo:
-    307×224 px (ou 319×236 px com bleed) a 300 DPI.
-    Gera também a folha A4 completa com até 91 cópias.
-    """
 
     def __init__(self, config: MonocleConfig):
         self.cfg = config
 
-    def process_single(
-        self,
-        source_path: str,
-        output_path: str,
-    ) -> dict:
-        """Processa uma foto para o formato do monóculo. Retorna metadados."""
-        cfg = self.cfg
-        # Abre qualquer formato que o Pillow suporte e normaliza para RGB
-        # (cobre JPEG, PNG, WebP, GIF, BMP, TIFF, HEIC, AVIF, CMYK, paleta…)
-        raw = Image.open(source_path)
-        if raw.mode in ("P", "PA"):
-            raw = raw.convert("RGBA")
-        src = raw.convert("RGB")
-        src_w, src_h = src.size
+    def process_single(self, source_path: str, output_path: str) -> dict:
+        cfg  = self.cfg
+        src  = _open_any(source_path)
+        risk = _crop_risk(src.width, src.height, cfg.display_w_px, cfg.display_h_px)
 
-        # Avaliação de crop risk
-        crop_risk = _crop_warning(src_w, src_h, cfg.output_w, cfg.output_h)
-
-        # Cover crop para o canvas de saída (com ou sem bleed)
-        result = _cover_crop(src, cfg.output_w, cfg.output_h)
-
-        # Enhancement para acetato (opcional)
         if cfg.enhance_transparency:
-            result = _enhance_for_transparency(result)
+            src = _enhance(src)
 
-        # Rounded corners (retorna RGBA se ativado)
-        if cfg.round_corners:
-            result = _apply_rounded_corners(result, cfg.radius_px)
+        tile = _make_tile_polaroid(src, cfg) if cfg.polaroid_border else _cover_crop(src, cfg.outer_w_px, cfg.outer_h_px)
 
-        # Salva
-        ext = cfg.export_format.upper()
-        if ext == "TIFF":
-            result.convert("RGB").save(
-                output_path, format="TIFF",
-                dpi=(cfg.dpi, cfg.dpi), compression="tiff_lzw"
-            )
+        if cfg.export_format == "TIFF":
+            _rgba_safe(tile).save(output_path, format="TIFF", dpi=(cfg.dpi, cfg.dpi), compression="tiff_lzw")
         else:
-            result.save(output_path, format="PNG", dpi=(cfg.dpi, cfg.dpi))
+            tile.save(output_path, format="PNG", dpi=(cfg.dpi, cfg.dpi))
 
-        return {
-            **cfg.summary(),
-            "source_size":  f"{src_w}×{src_h}",
-            "crop_loss_risk": crop_risk,
-            "enhanced":     cfg.enhance_transparency,
-            "corners":      cfg.round_corners,
-        }
+        return {**cfg.summary(), "source_size": f"{src.width}×{src.height}", "crop_loss_risk": risk}
 
     def process_a4_sheet(
         self,
-        source_path: str,
+        source_paths: List[str],   # aceita 1 ou N fotos
         output_tiff: str,
         output_preview: str | None = None,
     ) -> dict:
-        """
-        Gera folha A4 com o máximo de monóculos (91 cópias @ 300 DPI / gap 2 mm).
-        """
-        cfg = self.cfg
-        raw = Image.open(source_path)
-        if raw.mode in ("P", "PA"):
-            raw = raw.convert("RGBA")
-        src = raw.convert("RGB")
+        cfg    = self.cfg
+        a4_w   = mm2px(A4_W_MM, cfg.dpi)   # 2480
+        a4_h   = mm2px(A4_H_MM, cfg.dpi)   # 3508
+        gap_px = mm2px(cfg.gap_mm, cfg.dpi)
+        ow, oh = cfg.outer_w_px, cfg.outer_h_px
 
-        # Prepara o tile (sem bleed no grid — evita sobreposição)
-        tile_w = cfg.canvas_w_px
-        tile_h = cfg.canvas_h_px
-        tile   = _cover_crop(src, tile_w, tile_h)
+        # Centraliza o grid na folha
+        grid_w = cfg.cols * ow + (cfg.cols - 1) * gap_px
+        grid_h = cfg.rows * oh + (cfg.rows - 1) * gap_px
+        off_x  = (a4_w - grid_w) // 2
+        off_y  = (a4_h - grid_h) // 2
 
-        if cfg.enhance_transparency:
-            tile = _enhance_for_transparency(tile)
+        # Pré-processa cada foto uma vez
+        tiles = []
+        risks = []
+        for p in source_paths:
+            src = _open_any(p)
+            if cfg.enhance_transparency:
+                src = _enhance(src)
+            risks.append(_crop_risk(src.width, src.height, cfg.display_w_px, cfg.display_h_px))
+            t = _make_tile_polaroid(src, cfg) if cfg.polaroid_border else _cover_crop(src, ow, oh)
+            tiles.append(t)
 
-        if cfg.round_corners:
-            tile_rgba = _apply_rounded_corners(tile, cfg.radius_px)
-        else:
-            tile_rgba = tile.convert("RGBA")
+        n_photos   = len(tiles)
+        n_cells    = cfg.cols * cfg.rows
+        fill_repeat = cfg.fill_mode == "repeat"
 
         # Canvas A4 branco
-        a4_w = mm2px(A4_W_MM, cfg.dpi)
-        a4_h = mm2px(A4_H_MM, cfg.dpi)
         canvas = Image.new("RGBA", (a4_w, a4_h), (255, 255, 255, 255))
 
-        # Offsets para centralizar o grid
-        gap_px    = mm2px(cfg.gap_mm, cfg.dpi)
-        margin_px = mm2px(cfg.margin_mm, cfg.dpi)
-        grid_w = cfg.cols * tile_w + (cfg.cols - 1) * gap_px
-        grid_h = cfg.rows * tile_h + (cfg.rows - 1) * gap_px
-        off_x  = (a4_w - grid_w) // 2
-        off_y  = (a4_h - grid_h) // 2
-
-        # Cola os tiles
+        cell_idx = 0
         for row in range(cfg.rows):
             for col in range(cfg.cols):
-                x = off_x + col * (tile_w + gap_px)
-                y = off_y + row * (tile_h + gap_px)
-                canvas.paste(tile_rgba, (x, y), mask=tile_rgba)
-
-        # Desenha cruzetas de corte
-        canvas = self._draw_guides(canvas, off_x, off_y, tile_w, tile_h, gap_px)
-
-        # Salva TIFF final
-        final = canvas.convert("RGB")
-        final.save(output_tiff, format="TIFF", dpi=(cfg.dpi, cfg.dpi), compression="tiff_lzw")
-
-        # Preview
-        if output_preview:
-            prev = final.copy()
-            prev.thumbnail((900, 900), Image.LANCZOS)
-            prev.save(output_preview, format="JPEG", quality=90)
-
-        return {
-            **cfg.summary(),
-            "a4_px": f"{a4_w}×{a4_h}",
-            "crop_loss_risk": _crop_warning(src.width, src.height, tile_w, tile_h),
-        }
-
-    def process_a4_sheet_multiple(
-        self,
-        source_paths: list[str],
-        output_tiff: str,
-        output_preview: str | None = None,
-        repeat: bool = True,
-    ) -> dict:
-        """
-        Gera folha A4 preenchendo a grid com várias imagens.
-        Se `repeat` for True, as imagens são ciclicamente repetidas até preencher a4.
-        Se False, apenas as imagens fornecidas são colocadas (restante em branco).
-        """
-        cfg = self.cfg
-
-        # Preprocessa cada fonte em um tile RGBA
-        tiles: list[Image.Image] = []
-        risks: list[str] = []
-        for p in source_paths:
-            raw = Image.open(p)
-            if raw.mode in ("P", "PA"):
-                raw = raw.convert("RGBA")
-            src = raw.convert("RGB")
-            risks.append(_crop_warning(src.width, src.height, cfg.canvas_w_px, cfg.canvas_h_px))
-
-            tile = _cover_crop(src, cfg.canvas_w_px, cfg.canvas_h_px)
-            if cfg.enhance_transparency:
-                tile = _enhance_for_transparency(tile)
-            if cfg.round_corners:
-                tile_rgba = _apply_rounded_corners(tile, cfg.radius_px)
-            else:
-                tile_rgba = tile.convert("RGBA")
-            tiles.append(tile_rgba)
-
-        # Canvas A4
-        a4_w = mm2px(A4_W_MM, cfg.dpi)
-        a4_h = mm2px(A4_H_MM, cfg.dpi)
-        canvas = Image.new("RGBA", (a4_w, a4_h), (255, 255, 255, 255))
-
-        gap_px    = mm2px(cfg.gap_mm, cfg.dpi)
-        margin_px = mm2px(cfg.margin_mm, cfg.dpi)
-        grid_w = cfg.cols * cfg.canvas_w_px + (cfg.cols - 1) * gap_px
-        grid_h = cfg.rows * cfg.canvas_h_px + (cfg.rows - 1) * gap_px
-        off_x  = (a4_w - grid_w) // 2
-        off_y  = (a4_h - grid_h) // 2
-
-        total_slots = cfg.cols * cfg.rows
-        for idx in range(total_slots):
-            row = idx // cfg.cols
-            col = idx % cfg.cols
-            x = off_x + col * (cfg.canvas_w_px + gap_px)
-            y = off_y + row * (cfg.canvas_h_px + gap_px)
-
-            if idx < len(tiles):
-                tile = tiles[idx]
-            else:
-                if repeat and len(tiles) > 0:
-                    tile = tiles[idx % len(tiles)]
+                if not fill_repeat and cell_idx >= n_photos:
+                    break
+                tile = tiles[cell_idx % n_photos]
+                x = off_x + col * (ow + gap_px)
+                y = off_y + row * (oh + gap_px)
+                if tile.mode == "RGBA":
+                    canvas.paste(tile, (x, y), mask=tile)
                 else:
-                    # deixa em branco
-                    continue
+                    canvas.paste(tile.convert("RGBA"), (x, y))
+                cell_idx += 1
 
-            canvas.paste(tile, (x, y), mask=tile)
+        # Tracejado de corte
+        if cfg.draw_cut_lines:
+            self._draw_cut_lines(canvas, off_x, off_y, ow, oh, gap_px)
 
-        # Desenha cruzetas
-        canvas = self._draw_guides(canvas, off_x, off_y, cfg.canvas_w_px, cfg.canvas_h_px, gap_px)
-
-        # Salva TIFF final
-        final = canvas.convert("RGB")
+        final = _rgba_safe(canvas)
         final.save(output_tiff, format="TIFF", dpi=(cfg.dpi, cfg.dpi), compression="tiff_lzw")
 
-        # Preview
         if output_preview:
             prev = final.copy()
             prev.thumbnail((900, 900), Image.LANCZOS)
             prev.save(output_preview, format="JPEG", quality=90)
 
-        # resumo
+        max_risk = "high" if "high" in risks else ("medium" if "medium" in risks else "low")
+        used_cells = min(n_cells, n_photos) if not fill_repeat else n_cells
         return {
             **cfg.summary(),
-            "a4_px": f"{a4_w}×{a4_h}",
-            "selected": len(source_paths),
-            "repeated": bool(repeat),
-            "total_per_a4": cfg.total,
-            "crop_loss_risk": "high" if "high" in risks else ("medium" if "medium" in risks else "low"),
+            "a4_px":          f"{a4_w}×{a4_h}",
+            "photos_uploaded": n_photos,
+            "cells_used":      used_cells,
+            "crop_loss_risk":  max_risk,
         }
 
-    def _draw_guides(
-        self, canvas: Image.Image,
-        off_x: int, off_y: int,
-        tile_w: int, tile_h: int, gap_px: int,
-    ) -> Image.Image:
-        cfg  = self.cfg
-        draw = ImageDraw.Draw(canvas)
-        color = (180, 180, 180, 200)
-        ext   = 6   # extensão da cruz além da borda do tile
+    def _draw_cut_lines(self, canvas, off_x, off_y, ow, oh, gap_px):
+        """Cruzetas nos cantos + linhas tracejadas no centro de cada gap."""
+        cfg   = self.cfg
+        draw  = ImageDraw.Draw(canvas)
+        gray  = (160, 160, 160, 220)
+        ext   = 8    # extensão da cruzeta além da borda
+        dash  = 10   # px tracejado ligado
+        space = 6    # px tracejado desligado
 
+        grid_w = cfg.cols * ow + (cfg.cols - 1) * gap_px
+        grid_h = cfg.rows * oh + (cfg.rows - 1) * gap_px
+
+        def dashed_h(x0, x1, y):
+            x = x0
+            while x < x1:
+                draw.line([(x, y), (min(x + dash, x1), y)], fill=gray, width=1)
+                x += dash + space
+
+        def dashed_v(x, y0, y1):
+            y = y0
+            while y < y1:
+                draw.line([(x, y), (x, min(y + dash, y1))], fill=gray, width=1)
+                y += dash + space
+
+        # Linhas tracejadas verticais entre colunas
+        for col in range(1, cfg.cols):
+            x_cut = off_x + col * (ow + gap_px) - gap_px // 2
+            dashed_v(x_cut, off_y - ext, off_y + grid_h + ext)
+
+        # Linhas tracejadas horizontais entre linhas
+        for row in range(1, cfg.rows):
+            y_cut = off_y + row * (oh + gap_px) - gap_px // 2
+            dashed_h(off_x - ext, off_x + grid_w + ext, y_cut)
+
+        # Cruzetas nos cantos de cada tile
         for row in range(cfg.rows):
             for col in range(cfg.cols):
-                x  = off_x + col * (tile_w + gap_px)
-                y  = off_y + row * (tile_h + gap_px)
-                x2 = x + tile_w
-                y2 = y + tile_h
-
-                for (cx, cy) in [(x, y), (x2, y), (x, y2), (x2, y2)]:
-                    draw.line([(cx - ext, cy), (cx + ext, cy)], fill=color, width=1)
-                    draw.line([(cx, cy - ext), (cx, cy + ext)], fill=color, width=1)
-
-        return canvas
-
-
-# ── CLI ───────────────────────────────────────────────────────────────────────
-
-if __name__ == "__main__":
-    import sys, json
-
-    if len(sys.argv) < 3:
-        print("Uso: python monocle.py <foto.jpg> <saida.png> [--a4] [--acetato] [--tiff]")
-        sys.exit(1)
-
-    src  = sys.argv[1]
-    out  = sys.argv[2]
-    a4   = "--a4"      in sys.argv
-    acet = "--acetato" in sys.argv
-    tiff = "--tiff"    in sys.argv
-
-    cfg  = MonocleConfig(
-        enhance_transparency=acet,
-        export_format="TIFF" if tiff else "PNG",
-    )
-    proc = MonocleProcessor(cfg)
-
-    if a4:
-        info = proc.process_a4_sheet(src, out, out.replace(".tiff", "_preview.jpg"))
-    else:
-        info = proc.process_single(src, out)
-
-    print(json.dumps(info, indent=2, ensure_ascii=False))
+                x  = off_x + col * (ow + gap_px)
+                y  = off_y + row * (oh + gap_px)
+                for cx, cy in [(x, y), (x+ow, y), (x, y+oh), (x+ow, y+oh)]:
+                    draw.line([(cx-ext, cy), (cx+ext, cy)], fill=gray, width=1)
+                    draw.line([(cx, cy-ext), (cx, cy+ext)], fill=gray, width=1)
