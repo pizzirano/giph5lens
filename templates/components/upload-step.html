@@ -1,0 +1,50 @@
+<!-- STEP 1: Upload & Dropzone -->
+<section class="step active" id="step-upload">
+  <div class="sh">
+    <div class="sh-left">
+      <div class="sn" id="n1">1</div>
+      <span class="st">Fotos</span>
+    </div>
+    <button
+      class="btn-reset"
+      :class="{ vis: files.length > 0 }"
+      @click="resetAll()">
+      ↺ Limpar
+    </button>
+  </div>
+
+  <!-- Label envolve tudo — clique em qualquer lugar abre o seletor de arquivo -->
+  <label for="file-input" class="dz"
+    @dragover.prevent="$el.classList.add('over')"
+    @dragleave="$el.classList.remove('over')"
+    @drop.prevent="$el.classList.remove('over'); addFiles([...$event.dataTransfer.files])">
+    <input
+      id="file-input"
+      type="file"
+      accept="image/*"
+      multiple
+      style="display:none"
+      @change="addFiles([...$event.target.files]); $event.target.value = '';" />
+    <div class="dz-icon">📷</div>
+    <p class="dz-lbl">
+      <strong>Clique ou arraste</strong> — 1 a 70 fotos.<br />
+      JPG · PNG · WebP · qualquer proporção. Cover crop automático.
+    </p>
+  </label>
+
+  <!-- Thumbnails -->
+  <div class="thumbs" :class="{ vis: files.length > 0 }" id="thumbs">
+    <template x-for="(file, index) in files" :key="index">
+      <div class="thumb">
+        <img :src="URL.createObjectURL(file)" :alt="'frame ' + (index + 1)" />
+        <button class="thumb-rm" @click.prevent="removeFile(index)">×</button>
+      </div>
+    </template>
+    <!-- Botão + abre o mesmo input -->
+    <label for="file-input" class="thumb-add" title="Adicionar mais fotos">＋</label>
+  </div>
+
+  <div class="crop-warn" :class="{ vis: cropRisk }">
+    ⚠️ crop_loss_risk = high — uma ou mais fotos têm proporção muito diferente de 27:14. Confira o preview antes de imprimir.
+  </div>
+</section>

@@ -5,6 +5,8 @@ services:
       - "8000:8000"
     volumes:
       - ./app:/app/app                         # hot-reload do frontend
+      - ./templates:/app/templates             # HTML templates
+      - ./static:/app/static                   # CSS, JS estáticos
       - ./processing:/app/processing           # hot-reload do algoritmo
       - microtube_outputs:/tmp/microtube       # persistência de jobs
     environment:

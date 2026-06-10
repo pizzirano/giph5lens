@@ -1,0 +1,18 @@
+<!-- MODAL: Repeat vs Exact Fill Mode -->
+<div class="modal-bg" :class="{ vis: $root.showModal }" @click.self="$root.showModal = false">
+  <div class="modal">
+    <h3>Como preencher a folha A4?</h3>
+    <p id="modal-msg">
+      Você enviou <strong id="m-n">?</strong> fotos para <strong id="m-total">70</strong> posições.
+    </p>
+    <div class="modal-btns">
+      <button class="mbtn mbtn-rep" @click="$root.confirmFill('repeat')">
+        🔁 Repetir até 70
+      </button>
+      <button class="mbtn mbtn-ex" @click="$root.confirmFill('exact')">
+        📐 Só as <span id="m-n2">?</span> fotos
+      </button>
+    </div>
+    <p class="modal-note" id="modal-note"></p>
+  </div>
+</div>

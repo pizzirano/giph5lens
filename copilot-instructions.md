@@ -272,4 +272,162 @@ Uma implementação está pronta quando:
 - [ ] Preview aparece na UI antes do download
 
 - [ ] TIFF baixado abre no visualizador com dimensões `2480×3508` e DPI `300`
+
+---
+
+## 🎨 ARQUITETURA HAAL — STACK REFATORADA (v3.0+)
+
+A partir da v3.0, o projeto segue o padrão **HAAL**: **H**TML (via Jinja2) + **A**lpine.js + **A**sync (HTMX) + **L**ean CSS (Vanilla).
+
+### 📁 ESTRUTURA DE ARQUIVOS
+
+```
+app/
+├── main.py                               ← FastAPI com `app.mount("/static")`
+├── templates/
+│   ├── base.html                         ← Layout principal (Jinja2 + Alpine.js)
+│   ├── components/                       ← Fragmentos injetáveis
+│   │   ├── upload-step.html             ← Dropzone + thumbnails
+│   │   ├── params-step.html             ← Abas + parâmetros
+│   │   ├── process-step.html            ← Botão + progress + polling
+│   │   └── result-step.html             ← Preview + download
+│   ├── modals/
+│   │   └── fill-mode-modal.html         ← Modal Alpine (x-show)
+│   └── index.html                        ← [LEGADO] Manter para compatibilidade
+└── static/
+    └── css/
+        └── style.css                     ← 800 linhas Vanilla CSS (sem Tailwind)
+```
+
+### 🎭 DIVISÃO DE RESPONSABILIDADES
+
+#### **Alpine.js** → Estado Local & UI Reativa
+- `x-data="appState()"` → estado centralizado
+- `x-model` → two-way binding (DPI, gap_mm, etc.)
+- `x-show` / `x-if` → visibilidade condicional (modal, crop-warn)
+- `x-for` → renderização de thumbnails
+- Métodos: `addFiles()`, `removeFile()`, `startJob()`, `updateBadge()`, `confirmFill()`
+
+**Quando usar Alpine:**
+- Estados visuais puros (modal aberto/fechado, aba ativa)
+- Cálculos locais que não precisam do servidor
+- Sincronização de formulários (não requer fetch)
+
+#### **HTMX** → Comunicação Assíncrona
+- `hx-post="/api/process"` → envio de formulário (FormData)
+- `hx-get="/api/status-html/{job_id}"` → polling
+- `hx-trigger="every 1s"` → intervalo de polling
+- `hx-swap="innerHTML"` → injeção de fragmentos HTML
+
+**Quando usar HTMX:**
+- Upload de arquivos
+- Requisições que precisam de polling
+- Endpoints que retornam HTML (não JSON)
+
+#### **FastAPI** → Backend & Orquestração
+- `/api/process` → recebe FormData, retorna JSON `{"job_id": "abc123", ...}`
+- `/api/status/{job_id}` → retorna JSON com estado do job
+- `/api/status-html/{job_id}` → retorna fragmento HTML para HTMX injetar
+- `/api/layout-calc` → calcula grid do A4, retorna JSON
+- Background tasks com `@background_tasks.add_task()`
+
+**Quando criar novo endpoint:**
+1. Se retorna HTML para HTMX → `return HTMLResponse(html_fragment)`
+2. Se retorna dados → `return {dados}` (FastAPI serializa JSON automaticamente)
+3. Sempre usar `@app.post()`, `@app.get()`, etc. (não views genéricas)
+
+#### **CSS** → Estilos Únicos (sem frameworks)
+- Variáveis CSS: `--bg`, `--surface`, `--accent`, `--err`, etc.
+- Nenhuma classe Tailwind
+- Classes semânticas: `.dz` (dropzone), `.sh` (step-header), `.pf` (param-field)
+- Responsividade com `@media (max-width: 768px)`
+
+### 🔄 FLUXO: Upload → Processo → Resultado
+
+```mermaid
+graph TD
+    A["User Upload<br/>(drag-drop ou click)"]
+    B["Alpine.addFiles()"]
+    C["FormData"]
+    D["POST /api/process"]
+    E["FastAPI job"]
+    F["Background Task"]
+    G["HTMX Polling<br/>every 1s"]
+    H["GET /api/status-html"]
+    I["Injetar HTML"]
+    J["Show Result"]
+    
+    A --> B
+    B --> C
+    C --> D
+    D --> E
+    E --> F
+    E --> G
+    G --> H
+    H --> I
+    I --> J
+```
+
+### 📝 EXEMPLO: Adicionar Novo Parâmetro
+
+**Passo 1: FastAPI (main.py)**
+```python
+@app.post("/api/process")
+async def process(..., novo_param: str = Form("default")):
+    cfg = MonocleConfig(..., novo_param=novo_param)
+```
+
+**Passo 2: HTML (components/params-step.html)**
+```html
+<div class="pf">
+  <label>Novo Parâmetro</label>
+  <input x-model="$parent.novo_param" type="text" />
+</div>
+```
+
+**Passo 3: Alpine State (base.html)**
+```javascript
+function appState() {
+  return {
+    novo_param: 'default',
+    // ...
+  };
+}
+```
+
+**Passo 4: CSS (static/css/style.css)**
+```css
+/* Use classes existentes ou crie novas com variáveis */
+.new-input {
+  border: 1px solid var(--hi);
+  padding: 7px 10px;
+}
+```
+
+### 🎯 BOAS PRÁTICAS HAAL
+
+1. **Alpine:** Use `x-data` no elemento raiz, evite manipulação DOM manual
+2. **HTMX:** Prefira `hx-trigger="every 1s"` a `setInterval()` em JavaScript
+3. **FastAPI:** Endpoints retornam JSON ou HTML, nunca templates completos (use `TemplateResponse` apenas na rota `/`)
+4. **CSS:** Sempre adicione variáveis `:root` para cores (–accent, –err, etc.)
+5. **Componentes:** Máximo 80 linhas por arquivo template (legibilidade)
+
+### ✅ CHECKLIST: Nova Feature HAAL
+
+- [ ] Rota criada em `main.py` (retorna JSON ou HTMLResponse)
+- [ ] Component criado em `templates/components/` (usa `x-model`, `x-show`, etc.)
+- [ ] Alpine state adicionado em `appState()` com método correspondente
+- [ ] CSS adicionado em `static/css/style.css` com variáveis
+- [ ] Testado com `pytest` (se tem lógica backend)
+- [ ] Testado manualmente no browser
+- [ ] Documentado em copilot-instructions.md se padrão novo
+
+### 🚀 DEPLOYMENT
+
+Com a arquitetura HAAL:
+- `docker compose up` → FastAPI sobe em `localhost:8000`
+- CSS é servido estaticamente via `app.mount("/static", ...)`
+- Sem hot-reload no CSS → refresh do browser
+- Frontend totalmente funcional offline (except uploads)
+"""
 """

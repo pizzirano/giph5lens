@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>keepgram — Monocle Print Spooler</title>
+
+  <!-- 1. x-cloak inline — evita flash antes do Alpine inicializar -->
+  <style>[x-cloak] { display: none !important; }</style>
+
+  <!-- 2. Fontes -->
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
+
+  <!-- 3. CSS da aplicação -->
+  <link rel="stylesheet" href="/static/css/style.css" />
+
+  <!-- 4. appState ANTES do Alpine — Alpine precisa encontrar a função ao inicializar -->
+  <script>
+    function appState() {
+      return {
+        files: [],
+        mode: 'a4',
+        jobId: null,
+        showModal: false,
+        cropRisk: false,
+
+        dpi: 300,
+        gap_mm: 2.0,
+        round_corners: true,
+        polaroid_border: true,
+        enhance_transparency: false,
+        export_format: 'PNG',
+        draw_cut_lines: true,
+
+        progressPercent: 0,
+        statusMessage: '',
+        statusType: '',
+
+        showResult: false,
+        resultInfo: null,
+
+        init() {
+          this.$watch('dpi',    () => this.updateBadge());
+          this.$watch('gap_mm', () => this.updateBadge());
+          this.$watch('mode',   () => this.updateBadge());
+          this.$nextTick(() => this.updateBadge());
+        },
+
+        addFiles(newFiles) {
+          newFiles.forEach(f => {
+            if (this.files.length >= 70) return;
+            if (!f.type.startsWith('image/')) return;
+            this.files.push(f);
+          });
+          this.checkCropRisk();
+          this.updateBadge();
+        },
+
+        removeFile(index) {
+          this.files.splice(index, 1);
+          this.checkCropRisk();
+          this.updateBadge();
+        },
+
+        checkCropRisk() {
+          let highRisk = false;
+          let checked  = 0;
+          if (!this.files.length) { this.cropRisk = false; return; }
+          this.files.forEach(f => {
+            const img = new Image();
+            img.onload = () => {
+              const ar  = img.width / img.height;
+              const tar = 319 / 165;
+              if (Math.abs(ar - tar) / tar > 0.35) highRisk = true;
+              checked++;
+              if (checked === this.files.length) this.cropRisk = highRisk;
+            };
+            img.src = URL.createObjectURL(f);
+          });
+        },
+
+        setMode(m) { this.mode = m; },
+
+        confirmFill(fillMode) {
+          this.showModal = false;
+          this.submitJob(fillMode);
+        },
+
+        updateBadge() {
+          const bc = document.getElementById('bc');
+          const bs = document.getElementById('bs');
+          if (!bc || !bs) return;
+          if (this.mode === 'single') {
+            bc.textContent = '1';
+            bs.textContent = 'monóculo único · 31×17 mm · display 27×14 mm';
+            return;
+          }
+          const params = new URLSearchParams({ dpi: this.dpi, gap_mm: this.gap_mm, margin_mm: 8 });
+          fetch('/api/layout-calc?' + params)
+            .then(r => r.json())
+            .then(d => {
+              const n = this.files.length;
+              bc.textContent = d.total_per_a4 + ' monóculos';
+              bs.textContent = `${d.cols}×${d.rows} · ${n > 0 ? n + ' foto' + (n > 1 ? 's' : '') + ' · ' : ''}31×17 mm · ${d.dpi} DPI · A4`;
+            })
+            .catch(() => { bs.textContent = 'erro ao calcular'; });
+        },
+
+        startJob() {
+          if (!this.files.length) return;
+          const total = 70;
+          if (this.mode === 'a4' && this.files.length < total) {
+            this.showModal = true;
+            document.getElementById('m-n').textContent  = this.files.length;
+            document.getElementById('m-n2').textContent = this.files.length;
+            const smaller = (this.files.length * 366 * 201 * 3 / 1024 / 1024).toFixed(1);
+            const bigger  = (total * 366 * 201 * 3 / 1024 / 1024).toFixed(1);
+            document.getElementById('modal-note').textContent =
+              `Só as ${this.files.length}: arquivo menor (~${smaller}MB) · Repetir: mais cópias (~${bigger}MB)`;
+          } else {
+            this.submitJob('repeat');
+          }
+        },
+
+        async submitJob(fillMode) {
+          const fd = new FormData();
+          this.files.forEach(f => fd.append('files', f));
+          fd.append('mode',                  this.mode);
+          fd.append('dpi',                   this.dpi);
+          fd.append('round_corners',         this.round_corners);
+          fd.append('polaroid_border',       this.polaroid_border);
+          fd.append('enhance_transparency',  this.enhance_transparency);
+          fd.append('export_format',         this.export_format);
+          fd.append('fill_mode',             fillMode);
+          fd.append('gap_mm',                this.gap_mm);
+          fd.append('margin_mm',             '8');
+          fd.append('draw_cut_lines',        this.draw_cut_lines);
+
+          try {
+            this.statusMessage   = 'Enviando…';
+            this.statusType      = '';
+            this.progressPercent = 8;
+
+            const resp = await fetch('/api/process', { method: 'POST', body: fd });
+            const data = await resp.json();
+            if (!resp.ok) throw new Error(data.detail || 'Erro');
+
+            this.jobId           = data.job_id;
+            this.progressPercent = 28;
+            this.statusMessage   = 'Processando…';
+
+            const statusDiv = document.getElementById('polling-status');
+            htmx.ajax('GET', '/api/status-html/' + data.job_id, {
+              target:  statusDiv,
+              swap:    'innerHTML',
+              trigger: 'load, every 1s'
+            });
+
+          } catch(e) {
+            this.statusMessage   = 'Erro: ' + e.message;
+            this.statusType      = 'err';
+            this.progressPercent = 0;
+          }
+        },
+
+        resetAll() { location.reload(); }
+      };
+    }
+  </script>
+
+  <!-- 5. Alpine com defer — executa após DOM, encontra appState já declarado -->
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+</head>
+
+<body x-data="appState()" x-cloak>
+
+  {% include "modals/fill-mode-modal.html" %}
+
+  <header>
+    <p class="logo">⬡ keepgram · monocle print spooler v3</p>
+    <h1>Monóculo <span>Fotográfico</span> — Refil Printer</h1>
+    <p class="sub">Suba as fotos · configure · baixe o A4 pronto para gráfica.</p>
+    <div class="spec-strip">
+      <span class="chip">31 × 17 mm</span>
+      <span class="chip">display 27 × 14 mm</span>
+      <span class="chip">366 × 201 px</span>
+      <span class="chip">300 DPI</span>
+      <span class="chip">borda Polaroid P&B</span>
+      <span class="chip">70 por folha A4</span>
+      <span class="chip">tracejado de corte</span>
+    </div>
+  </header>
+
+  <main class="pipeline">
+    {% include "components/upload-step.html" %}
+    {% include "components/params-step.html" %}
+    {% include "components/process-step.html" %}
+    {% include "components/result-step.html" %}
+  </main>
+
+  <footer>keepgram v3 · 31×17 mm · 70 por A4 · display 27×14 mm · feito com ♥ para Dublin</footer>
+
+  <!-- HTMX no final do body — sem defer, sem conflito com Alpine -->
+  <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+
+</body>
+</html>

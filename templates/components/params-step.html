@@ -1,0 +1,69 @@
+<!-- STEP 2: Parameters & Configuration -->
+<section class="step" id="step-params">
+  <div class="sh">
+    <div class="sh-left">
+      <div class="sn" id="n2">2</div>
+      <span class="st">Parâmetros</span>
+    </div>
+  </div>
+
+  <!-- Mode Tabs -->
+  <div class="tabs">
+    <button class="tab" :class="{ active: $parent.mode === 'a4' }" @click="$parent.setMode('a4')">
+      📄 Folha A4 (70 cópias)
+    </button>
+    <button class="tab" :class="{ active: $parent.mode === 'single' }" @click="$parent.setMode('single')">
+      🔍 Monóculo único
+    </button>
+  </div>
+
+  <!-- Parameters Grid -->
+  <div class="pg">
+    <div class="pf">
+      <label>DPI</label>
+      <input type="number" x-model.number="$parent.dpi" min="150" max="600" @change="$parent.updateBadge()" />
+      <p class="hint">300 = padrão gráfica</p>
+    </div>
+    <div class="pf">
+      <label>Cantos</label>
+      <select x-model="$parent.round_corners">
+        <option value="true" selected>Arredondados (1 mm)</option>
+        <option value="false">Retos</option>
+      </select>
+    </div>
+    <div class="pf">
+      <label>Borda Polaroid</label>
+      <select x-model="$parent.polaroid_border">
+        <option value="true" selected>Sim (P&B)</option>
+        <option value="false">Não</option>
+      </select>
+      <p class="hint">moldura branca + linha preta</p>
+    </div>
+    <div class="pf">
+      <label>Impressão</label>
+      <select x-model="$parent.enhance_transparency">
+        <option value="false" selected>Papel fotográfico</option>
+        <option value="true">Acetato</option>
+      </select>
+      <p class="hint">acetato: +contraste +sat</p>
+    </div>
+    <div class="pf">
+      <label>Formato</label>
+      <select x-model="$parent.export_format">
+        <option value="PNG" selected>PNG (lossless)</option>
+        <option value="TIFF">TIFF (máx. fidelidade)</option>
+      </select>
+    </div>
+    <div class="pf" :style="{ opacity: $parent.mode === 'a4' ? '1' : '0.4' }">
+      <label>Gap (mm)</label>
+      <input type="number" x-model.number="$parent.gap_mm" min="1" max="8" step="0.5" @change="$parent.updateBadge()" />
+      <p class="hint">espaço entre monóculos</p>
+    </div>
+  </div>
+
+  <!-- Layout Badge -->
+  <div class="badge">
+    <span class="bc" id="bc">70</span>
+    <span class="bs" id="bs">5 colunas × 14 linhas · 31×17 mm · 300 DPI · A4</span>
+  </div>
+</section>

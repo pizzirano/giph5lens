@@ -1,5 +1,5 @@
 """
-giph5lens v3 — 31×17 mm · 70 por A4 · multi-upload · borda Polaroid
+keepgram v3 — 31×17 mm · 70 por A4 · multi-upload · borda Polaroid
 """
 import uuid, shutil
 from pathlib import Path
@@ -8,15 +8,16 @@ from PIL import Image as PILImage
 
 from fastapi import FastAPI, UploadFile, File, HTTPException, BackgroundTasks, Form
 from fastapi.templating import Jinja2Templates
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi.requests import Request
 from pydantic import BaseModel
 
 from processing.monocle import MonocleProcessor, MonocleConfig
 
-app = FastAPI(title="giph5lens v3", version="3.0.0")
+app = FastAPI(title="keepgram v3", version="3.0.0")
 
-BASE_DIR   = Path(__file__).parent
+BASE_DIR   = Path(__file__).parent.parent  # /app — templates/ e static/ estão aqui
 UPLOAD_DIR = Path("/tmp/microtube/uploads")
 OUTPUT_DIR = Path("/tmp/microtube/outputs")
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
@@ -35,21 +36,23 @@ class JobStatus(BaseModel):
 jobs: dict[str, JobStatus] = {}
 
 
+# ── Rotas ─────────────────────────────────────────────────────────────────────
+
 @app.get("/")
 async def index(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request})
+    return templates.TemplateResponse("base.html", {"request": request})
 
 
 @app.post("/api/process", response_model=JobStatus)
 async def process(
     background_tasks: BackgroundTasks,
-    files: List[UploadFile] = File(...),          # múltiplos arquivos
+    files: List[UploadFile] = File(...),
     mode: str               = Form("a4"),
     dpi: int                = Form(300),
     round_corners: bool     = Form(True),
     enhance_transparency: bool = Form(False),
     export_format: str      = Form("PNG"),
-    fill_mode: str          = Form("repeat"),     # "repeat" | "exact"
+    fill_mode: str          = Form("repeat"),
     gap_mm: float           = Form(2.0),
     margin_mm: float        = Form(8.0),
     draw_cut_lines: bool    = Form(True),
@@ -94,6 +97,74 @@ async def status(job_id: str):
     return jobs[job_id]
 
 
+@app.get("/api/status-html/{job_id}")
+async def status_html(job_id: str):
+    if job_id not in jobs:
+        raise HTTPException(404, "Job não encontrado.")
+
+    job = jobs[job_id]
+
+    if job.status == "done":
+        info   = job.info or {}
+        risk   = info.get("crop_loss_risk", "low")
+        cells  = info.get("cells_used", "?")
+        photos = info.get("photos_uploaded", "?")
+        dpi    = info.get("dpi", "300")
+        fmt    = info.get("format", "PNG")
+
+        html = f"""
+        <p class="sm ok">{job.message}</p>
+        <script>
+          (function() {{
+            const el = document.querySelector('[x-data]');
+            if (!el) return;
+            const alpine = Alpine.$data(el);
+            alpine.progressPercent = 100;
+            alpine.showResult      = true;
+            alpine.resultInfo      = {{
+              cells:  '{cells}',
+              photos: '{photos}',
+              dpi:    '{dpi}',
+              format: '{fmt}',
+              risk:   '{risk}',
+              job_id: '{job_id}'
+            }};
+            document.getElementById('step-result')
+              ?.scrollIntoView({{ behavior: 'smooth' }});
+          }})();
+        </script>
+        """
+        return HTMLResponse(html, headers={"HX-Trigger": "jobDone"})
+
+    elif job.status == "error":
+        html = f"""
+        <p class="sm err">{job.message}</p>
+        <script>
+          (function() {{
+            const el = document.querySelector('[x-data]');
+            if (!el) return;
+            const alpine = Alpine.$data(el);
+            alpine.progressPercent = 0;
+          }})();
+        </script>
+        """
+        return HTMLResponse(html, headers={"HX-Trigger": "jobError"})
+
+    else:
+        html = f"""
+        <p class="sm">{job.message}</p>
+        <script>
+          (function() {{
+            const el = document.querySelector('[x-data]');
+            if (!el) return;
+            const alpine = Alpine.$data(el);
+            alpine.progressPercent = 65;
+          }})();
+        </script>
+        """
+        return HTMLResponse(html)
+
+
 @app.get("/api/download/{job_id}")
 async def download(job_id: str):
     job = jobs.get(job_id)
@@ -103,7 +174,7 @@ async def download(job_id: str):
         p = OUTPUT_DIR / f"{job_id}_out{ext}"
         if p.exists():
             media = "image/tiff" if ext == ".tiff" else "image/png"
-            return FileResponse(str(p), media_type=media, filename=f"giph5lens_{job_id}{ext}")
+            return FileResponse(str(p), media_type=media, filename=f"keepgram_{job_id}{ext}")
     raise HTTPException(404, "Arquivo não encontrado.")
 
 
@@ -120,6 +191,8 @@ async def layout_calc(dpi: int = 300, gap_mm: float = 2.0, margin_mm: float = 8.
     cfg = MonocleConfig(dpi=dpi, gap_mm=gap_mm, margin_mm=margin_mm)
     return cfg.summary()
 
+
+# ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _rgba_safe(img: PILImage.Image) -> PILImage.Image:
     if img.mode in ("RGBA", "LA"):
@@ -139,10 +212,10 @@ def _run_job(job_id: str, paths: List[str], mode: str, cfg: MonocleConfig):
         n    = len(paths)
 
         if mode == "a4":
-            info = proc.process_a4_sheet(paths, out, prev)
+            info  = proc.process_a4_sheet(paths, out, prev)
             cells = info["cells_used"]
             msg   = (f"✓ {cells} monóculos na folha A4 "
-                     f"({cfg.cols}×{cfg.rows}) · {n} foto{'s' if n>1 else ''} · 300 DPI")
+                     f"({cfg.cols}×{cfg.rows}) · {n} foto{'s' if n > 1 else ''} · 300 DPI")
         else:
             info = proc.process_single(paths[0], out)
             risk = info.get("crop_loss_risk", "low")
@@ -152,6 +225,7 @@ def _run_job(job_id: str, paths: List[str], mode: str, cfg: MonocleConfig):
             img_prev.save(prev, format="JPEG", quality=88)
 
         jobs[job_id] = JobStatus(job_id=job_id, status="done", message=msg, info=info)
+
     except Exception as exc:
         import traceback
         jobs[job_id] = JobStatus(
@@ -159,3 +233,8 @@ def _run_job(job_id: str, paths: List[str], mode: str, cfg: MonocleConfig):
             message=f"Erro: {exc}",
             info={"traceback": traceback.format_exc()}
         )
+
+
+# ── Static files — SEMPRE por último ─────────────────────────────────────────
+# O mount precisa vir depois de todas as rotas para não interceptar requests
+app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")

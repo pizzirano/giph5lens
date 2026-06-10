@@ -1,0 +1,19 @@
+<!-- STEP 3: Process & Progress -->
+<section class="step" id="step-process">
+  <div class="sh">
+    <div class="sh-left">
+      <div class="sn" id="n3">3</div>
+      <span class="st">Gerar</span>
+    </div>
+  </div>
+  <button class="btn-run" @click="startJob()" :disabled="!$parent.files.length">
+    ▶ &nbsp;Gerar Arquivo de Impressão
+  </button>
+  <div class="pt" :class="{ vis: $parent.progressPercent > 0 }">
+    <div class="pb" :style="{ width: $parent.progressPercent + '%' }"></div>
+  </div>
+  <p class="sm" :class="$parent.statusType" x-text="$parent.statusMessage"></p>
+  
+  <!-- HTMX polling target -->
+  <div id="polling-status"></div>
+</section>

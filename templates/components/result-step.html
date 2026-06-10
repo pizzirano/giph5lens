@@ -1,0 +1,26 @@
+<!-- STEP 4: Result & Download -->
+<section class="step" id="step-result">
+  <div class="sh">
+    <div class="sh-left">
+      <div class="sn" id="n4">4</div>
+      <span class="st">Download</span>
+    </div>
+  </div>
+  <div class="rp" :class="{ vis: $parent.showResult }">
+    <div class="pw">
+      <img :src="'/api/preview/' + $parent.jobId + '?t=' + Date.now()" alt="preview" />
+    </div>
+    <p class="rm" x-html="$parent.resultInfo?.message || ''"></p>
+    <div class="dl-row">
+      <a class="btn-dl" :href="'/api/download/' + $parent.jobId" download>
+        ↓ &nbsp;Baixar para Impressão
+      </a>
+    </div>
+    <div class="ptip">
+      <strong>Como imprimir:</strong><br />
+      Envie o arquivo para gráfica ou impressora fotográfica.<br />
+      <strong>A4 · tamanho real · 100% · sem escalonamento automático</strong>.<br />
+      Corte nas linhas tracejadas. Papel fotográfico glossy 200g+.
+    </div>
+  </div>
+</section>
